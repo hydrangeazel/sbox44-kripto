@@ -31,8 +31,9 @@ st.sidebar.markdown("---")
 st.sidebar.info(
     """
     **Team Project**
-    - AES Standard
-    - AES S-Box44 (Custom)
+    - Rahima Ratna Dewanti/2304130107
+    - Muthia Nis Tiadah/2304130117
+    - Zulfa Mardlotillah/2340130135
     """
 )
 
