@@ -50,7 +50,9 @@ def get_metrics(is_sbox44):
     nl_val = calc_nl_measure(sbox)
     sac_val = calc_sac_measure(sbox)
     bic_nl_val = calc_bic_nl_measure(sbox)
-    # bic_sac_val = calc_bic_sac_measure(sbox)  # Bisa diaktifkan jika diperlukan
+    bic_sac_val = calc_bic_sac_measure(sbox)
+    lap_val = calc_lap_measure(sbox)
+    dap_val = calc_dap_measure(sbox)
     elapsed_time = (time.time() - start_time) * 1000  # dalam ms
     
     return [nl_val, sac_val, bic_nl_val, int(elapsed_time)]
