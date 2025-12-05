@@ -5,11 +5,13 @@ import time
 from aes_engine.modes import AESModes
 from analytics import (
     calc_nl_measure, calc_sac_measure, calc_bic_nl_measure,
-    calc_bic_sac_measure, calc_lap_measure, calc_dap_measure
+    calc_bic_sac_measure, calc_lap_measure, calc_dap_measure, 
+    calc_to_measure
 )
 from aes_engine.utils import SBOX
 import json
 import os
+import base64
 
 def load_sbox44():
     """Memuat S-box44 dari file JSON"""
@@ -25,8 +27,7 @@ def load_sbox44():
     except:
         return None
 
-def encrypt_data(data_type, data, key, is_sbox44):
-    """Enkripsi data (text atau image)"""
+def encrypt_data(data_type, data, key, is_sbox44, output_format):
     cipher = AESModes(key, use_sbox44=is_sbox44)
     
     if data_type == "Text":
@@ -34,9 +35,13 @@ def encrypt_data(data_type, data, key, is_sbox44):
             encrypted = cipher.encrypt_cbc(data, "vektorinisial123")
         else:
             encrypted = cipher.encrypt_ecb(data)
-        return encrypted.hex()
+
+        if output_format == "Hex":
+            return encrypted.hex()
+        else:  # Base64
+            return base64.b64encode(encrypted).decode()
+
     else:
-        # Untuk image, return placeholder
         return f"Image encrypted with {'S-Box44' if is_sbox44 else 'Standard'}"
 
 def get_metrics(is_sbox44):
@@ -53,9 +58,10 @@ def get_metrics(is_sbox44):
     bic_sac_val = calc_bic_sac_measure(sbox)
     lap_val = calc_lap_measure(sbox)
     dap_val = calc_dap_measure(sbox)
+    to_val = calc_to_measure(sbox)
     elapsed_time = (time.time() - start_time) * 1000  # dalam ms
     
-    return [nl_val, sac_val, bic_nl_val, int(elapsed_time)]
+    return [nl_val, sac_val, bic_nl_val, bic_sac_val, lap_val, dap_val, to_val, int(elapsed_time)]
 
 
 def render_comparison_ui():
@@ -95,6 +101,13 @@ def render_comparison_ui():
         st.session_state['comp_input'] = data_input
         st.session_state['comp_key'] = key
         st.session_state['comp_type'] = comparison_data_type
+
+    # CIPHERTEXT OPTION
+    output_format = st.selectbox(
+    "Format Output Ciphertext:",
+    ["Hex", "Base64"],
+    index=0
+    )
     
     # --- HASIL PERBANDINGAN ---
     
@@ -108,7 +121,7 @@ def render_comparison_ui():
             st.info("AES Standard")
             
             try:
-                output_std = encrypt_data(st.session_state['comp_type'], st.session_state['comp_input'], st.session_state['comp_key'], False)
+                output_std = encrypt_data(st.session_state['comp_type'], st.session_state['comp_input'], st.session_state['comp_key'], False, output_format)
                 
                 if st.session_state['comp_type'] == "Text":
                     st.code(output_std, language="text")
@@ -122,7 +135,7 @@ def render_comparison_ui():
             st.success("AES S-Box44 (Custom)")
             
             try:
-                output_s44 = encrypt_data(st.session_state['comp_type'], st.session_state['comp_input'], st.session_state['comp_key'], True)
+                output_s44 = encrypt_data(st.session_state['comp_type'], st.session_state['comp_input'], st.session_state['comp_key'], True, output_format)
                 
                 if st.session_state['comp_type'] == "Text":
                     st.code(output_s44, language="text")
@@ -142,7 +155,7 @@ def render_comparison_ui():
             metrics_s44 = get_metrics(True)
 
         data = {
-            'Metric': ['Non-Linearity (Ideal 112)', 'SAC (Ideal 0.5)', 'BIC-NL', 'Encryption Time (ms)'],
+            'Metric': ['Non-Linearity (Ideal 112)', 'SAC (Ideal 0.5)', 'BIC-NL', 'BIC-SAC', 'LAP (Ideal 0.5)', 'DAP (Ideal 0.5)', 'TO (Ideal 0.0)', 'Encryption Time (ms)'],
             'AES Standard': metrics_std,
             'AES S-Box44': metrics_s44
         }
@@ -158,9 +171,88 @@ def render_comparison_ui():
         st.bar_chart(time_chart_data)
 
         st.markdown("---")
-        st.markdown("**Kesimpulan Otomatis (Simulasi):**")
-        st.markdown("""
-        Berdasarkan hasil analisis:
-        - **AES Standard:** Memiliki Non-Linearity yang lebih tinggi (112), yang bagus untuk ketahanan.
-        - **AES S-Box44:** Memiliki SAC (Strict Avalanche Criterion) yang sedikit lebih dekat ke nilai ideal 0.5 (0.502), menunjukkan difusi yang sangat baik, namun dengan overhead waktu enkripsi yang sedikit lebih lama (+5 ms) karena kompleksitas S-Box custom.
-        """)
+        st.markdown("**Analisis Metrik**")
+        
+        # === AUTO CONCLUSION BASED ON REAL METRICS ===
+        nl_std, sac_std, bic_nl_std, bic_sac_std, lap_std, dap_std, to_std, t_std = metrics_std
+        nl_s44, sac_s44, bic_nl_s44, bic_sac_s44, lap_s44, dap_s44, to_s44, t_s44 = metrics_s44
+        
+        st.markdown("**Non-Linearity**")
+        if nl_std > nl_s44:
+            st.write("AES Standard menunjukkan non-linearity lebih tinggi, sehingga potensi ketahanannya terhadap serangan linier lebih baik.")
+        elif nl_std < nl_s44:
+            st.write("AES S-Box44 memiliki non-linearity lebih tinggi, yang mengindikasikan ketahanan lebih baik terhadap serangan linier.")
+        else:
+            st.write("Kedua metode memiliki non-linearity yang sama.")
+            
+        conclusion = [] # kesimpulan otomatis
+
+        # Non-linearity
+        if nl_std > nl_s44:
+            st.write("AES Standard menunjukkan non-linearity lebih tinggi, sehingga potensi ketahanannya terhadap serangan linier lebih baik.")
+        elif nl_std < nl_s44:
+            st.write("AES S-Box44 memiliki non-linearity lebih tinggi, yang mengindikasikan ketahanan lebih baik terhadap serangan linier.")
+        else:
+            st.write("Kedua metode memiliki non-linearity yang sama.")
+
+        # SAC
+        if sac_std > sac_s44:
+            st.write("AES Standard menunjukkan SAC lebih tinggi, sehingga difusinya sedikit lebih baik.")
+        elif sac_std < sac_s44:
+            st.write("AES S-Box44 memiliki SAC lebih tinggi, yang mengindikasikan difusinya lebih optimal.")
+        else:
+            st.write("Kedua metode memiliki SAC yang sama.")
+
+        # BIC-NL
+        if bic_nl_std > bic_nl_s44:
+            st.write("AES Standard menunjukkan BIC-NL lebih tinggi, sehingga potensi ketahanannya terhadap serangan linier lebih baik.")
+        elif bic_nl_std < bic_nl_s44:
+            st.write("AES S-Box44 memiliki BIC-NL lebih tinggi, yang mengindikasikan ketahanan lebih baik terhadap serangan linier.")
+        else:
+            st.write("Kedua metode memiliki BIC-NL yang sama.")
+
+        # LAP
+        if lap_std > lap_s44:
+            st.write("AES Standard menunjukkan LAP lebih tinggi, sehingga stabilitasnya terhadap perubahan bit input lebih baik.")
+        elif lap_std < lap_s44:
+            st.write("AES S-Box44 memiliki LAP lebih tinggi, yang mengindikasikan stabilitasnya lebih baik terhadap perubahan bit input.")
+        else:
+            st.write("Kedua metode memiliki LAP yang sama.")
+
+        # DAP
+        if dap_std > dap_s44:
+            st.write("AES Standard menunjukkan DAP lebih tinggi, sehingga difusi idealnya lebih baik.")
+        elif dap_std < dap_s44:
+            st.write("AES S-Box44 memiliki DAP lebih tinggi, yang mengindikasikan difusi idealnya lebih baik.")
+        else:
+            st.write("Kedua metode memiliki DAP yang sama.")
+
+        # Execution Time
+        if t_std < t_s44:
+            st.write(f"Waktu enkripsi AES Standard lebih cepat (selisih {t_s44 - t_std} ms).")
+        elif t_std > t_s44:
+            st.write(f"Waktu enkripsi AES S-Box44 lebih cepat (selisih {t_std - t_s44} ms).")
+        else:
+            st.write("Kedua metode memiliki waktu enkripsi yang sama.")
+
+        st.markdown("### 🔍 Kesimpulan Otomatis Berdasarkan Metrik")
+        for c in conclusion:
+            st.write("• " + c)
+
+        # TO
+        if to_std > to_s44:
+            st.write("AES Standard menunjukkan TO lebih tinggi, sehingga transparansi lebih baik.")
+        elif to_std < to_s44:
+            st.write("AES S-Box44 memiliki TO lebih tinggi, yang mengindikasikan transparansi lebih baik.")
+        else:
+            st.write("Kedua metode memiliki TO yang sama.")
+
+        # Ringkasan final opsional
+        if nl_s44 > nl_std and abs(sac_s44 - 0.5) < abs(sac_std - 0.5):
+            final_summary = "⛳ Secara keseluruhan, AES S-Box44 menunjukkan keunggulan yang lebih kuat dalam aspek keamanan."
+        elif t_std < t_s44:
+            final_summary = "⚡ AES Standard lebih unggul dari sisi kecepatan sehingga cocok untuk implementasi real-time."
+        else:
+            final_summary = "🔁 Kedua mesin memiliki kelebihan masing-masing dan pemilihan tergantung kebutuhan sistem."
+
+        st.success(final_summary)
