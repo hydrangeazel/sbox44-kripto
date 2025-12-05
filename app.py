@@ -5,7 +5,7 @@ from components.ui_comparison import render_comparison_ui
 
 # Konfigurasi Halaman
 st.set_page_config(
-    page_title="AES S-Box44 Analysis",
+    page_title="Encryption Decryption Using Different AES S-Box",
     page_icon="🔐",
     layout="wide",
     initial_sidebar_state="expanded"

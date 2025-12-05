@@ -3,9 +3,8 @@ from PIL import Image
 import io
 import time
 
-# TODO: Nanti Import image_engine dari Person 3 di sini
-# from image_engine.encoder import encrypt_image
-# from image_engine.decoder import decrypt_image
+from image_engine.encoder import encrypt_image
+from image_engine.decoder import decrypt_image
 
 def render_image_ui():
     st.title("🖼️ Image Encryption")
@@ -28,23 +27,31 @@ def render_image_ui():
                     st.error("Key wajib 16 karakter!")
                 else:
                     with st.spinner('Memproses piksel...'):
-                        time.sleep(1.5) # Simulasi berat
-                        
-                        # --- MOCK LOGIC (Ganti backend Person 3) ---
-                        # Disini nanti panggil fungsi encrypt_image()
-                        # Untuk demo, kita ubah jadi grayscale aja
-                        encrypted_img = image.convert("L") 
-                        # -------------------------------------------
-                        
+                        use_sbox44 = engine_type == "AES S-Box44"
+                        encrypted_img = encrypt_image(image, key, use_sbox44=use_sbox44)
                         st.session_state['enc_image'] = encrypted_img
+                        st.session_state['enc_key'] = key
+                        st.session_state['enc_use_sbox44'] = use_sbox44
                         st.success("Gambar terenkripsi!")
 
         with col2:
             if st.button("🔓 Dekripsi Gambar"):
                 if 'enc_image' not in st.session_state:
                     st.error("Tidak ada gambar terenkripsi.")
+                elif len(key) != 16:
+                    st.error("Key wajib 16 karakter!")
                 else:
-                    st.success("Gambar berhasil dipulihkan (Simulasi).")
+                    try:
+                        use_sbox44 = st.session_state.get('enc_use_sbox44', False)
+                        decrypted_img = decrypt_image(
+                            st.session_state['enc_image'], 
+                            key, 
+                            use_sbox44=use_sbox44
+                        )
+                        st.session_state['dec_image'] = decrypted_img
+                        st.success("Gambar berhasil dipulihkan!")
+                    except Exception as e:
+                        st.error(f"Gagal mendekripsi: {e}")
 
         # Menampilkan hasil enkripsi jika ada
         if 'enc_image' in st.session_state:
@@ -63,3 +70,9 @@ def render_image_ui():
                 file_name="encrypted_image.png",
                 mime="image/png"
             )
+        
+        # Menampilkan hasil dekripsi jika ada
+        if 'dec_image' in st.session_state:
+            st.markdown("---")
+            st.subheader("Hasil Dekripsi")
+            st.image(st.session_state['dec_image'], caption="Decrypted Image", use_column_width=True)

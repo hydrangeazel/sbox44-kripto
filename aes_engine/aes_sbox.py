@@ -24,9 +24,14 @@ class AESSbox44(AES):
         try:
             with open(json_path, 'r') as f:
                 data = json.load(f)
-                # Pastikan key di JSON namanya "sbox" sesuai file assets kamu
-                return data['sbox'] 
+                # Dukungan untuk key 'sbox44' maupun 'sbox'
+                sbox_values = data.get('sbox44') or data.get('sbox')
+                if not sbox_values:
+                    raise KeyError("sbox44/sbox")
+                if len(sbox_values) != 256:
+                    raise ValueError("S-box harus berisi 256 nilai.")
+                return sbox_values
         except FileNotFoundError:
             raise Exception(f"Error: File sbox44.json tidak ditemukan di {json_path}")
         except KeyError:
-            raise Exception("Error: Format JSON salah. Harus ada key 'sbox'.")
+            raise Exception("Error: Format JSON salah. Harus ada key 'sbox44' atau 'sbox'.")
