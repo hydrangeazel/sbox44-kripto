@@ -6,7 +6,7 @@ from aes_engine.modes import AESModes
 from analytics import (
     calc_nl_measure, calc_sac_measure, calc_bic_nl_measure,
     calc_bic_sac_measure, calc_lap_measure, calc_dap_measure, 
-    calc_to_measure
+    calc_to_measure, calc_du_measure, calc_ad_measure
 )
 from aes_engine.utils import SBOX
 import json
@@ -59,9 +59,11 @@ def get_metrics(is_sbox44):
     lap_val = calc_lap_measure(sbox)
     dap_val = calc_dap_measure(sbox)
     to_val = calc_to_measure(sbox)
+    du_val = calc_du_measure(sbox)
+    ad_val = calc_ad_measure(sbox)
     elapsed_time = (time.time() - start_time) * 1000  # dalam ms
     
-    return [nl_val, sac_val, bic_nl_val, bic_sac_val, lap_val, dap_val, to_val, int(elapsed_time)]
+    return [nl_val, sac_val, bic_nl_val, bic_sac_val, lap_val, dap_val, to_val, du_val, ad_val, int(elapsed_time)]
 
 
 def render_comparison_ui():
@@ -155,7 +157,7 @@ def render_comparison_ui():
             metrics_s44 = get_metrics(True)
 
         data = {
-            'Metric': ['Non-Linearity (Ideal 112)', 'SAC (Ideal 0.5)', 'BIC-NL', 'BIC-SAC', 'LAP (Ideal 0.5)', 'DAP (Ideal 0.5)', 'TO (Ideal 0.0)', 'Encryption Time (ms)'],
+            'Metric': ['Non-Linearity (Ideal 112)', 'SAC (Ideal 0.5)', 'BIC-NL', 'BIC-SAC', 'LAP (Ideal 0.5)', 'DAP (Ideal 0.5)', 'TO (Ideal 0.0)', 'DU (Ideal 4)', 'AD (Ideal 7)', 'Encryption Time (ms)'],
             'AES Standard': metrics_std,
             'AES S-Box44': metrics_s44
         }
@@ -174,8 +176,8 @@ def render_comparison_ui():
         st.markdown("**Analisis Metrik**")
         
         # === AUTO CONCLUSION BASED ON REAL METRICS ===
-        nl_std, sac_std, bic_nl_std, bic_sac_std, lap_std, dap_std, to_std, t_std = metrics_std
-        nl_s44, sac_s44, bic_nl_s44, bic_sac_s44, lap_s44, dap_s44, to_s44, t_s44 = metrics_s44
+        nl_std, sac_std, bic_nl_std, bic_sac_std, lap_std, dap_std, to_std, du_std, ad_std, t_std = metrics_std
+        nl_s44, sac_s44, bic_nl_s44, bic_sac_s44, lap_s44, dap_s44, to_s44, du_s44, ad_s44, t_s44 = metrics_s44
         
         st.markdown("**Non-Linearity**")
         if nl_std > nl_s44:
@@ -246,6 +248,22 @@ def render_comparison_ui():
             st.write("AES S-Box44 memiliki TO lebih tinggi, yang mengindikasikan transparansi lebih baik.")
         else:
             st.write("Kedua metode memiliki TO yang sama.")
+
+        # DU
+        if du_std > du_s44:
+            st.write("AES Standard menunjukkan DU lebih tinggi, sehingga uniformitas lebih baik.")
+        elif du_std < du_s44:
+            st.write("AES S-Box44 memiliki DU lebih tinggi, yang mengindikasikan uniformitas lebih baik.")
+        else:
+            st.write("Kedua metode memiliki DU yang sama.")
+
+        # AD
+        if ad_std > ad_s44:
+            st.write("AES Standard menunjukkan AD lebih tinggi, sehingga keacakan lebih baik.")
+        elif ad_std < ad_s44:
+            st.write("AES S-Box44 memiliki AD lebih tinggi, yang mengindikasikan keacakan lebih baik.")
+        else:
+            st.write("Kedua metode memiliki AD yang sama.") 
 
         # Ringkasan final opsional
         if nl_s44 > nl_std and abs(sac_s44 - 0.5) < abs(sac_std - 0.5):
