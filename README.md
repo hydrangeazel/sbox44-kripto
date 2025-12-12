@@ -17,17 +17,42 @@ Aplikasi web berbasis Streamlit untuk enkripsi/dekripsi teks dan gambar mengguna
 
 ## Instalasi
 
-1. Clone repository ini
-2. Install dependencies:
+1. Install dependencies:
+```bash
+pip install flask flask-cors
+```
+
+Atau install semua dependencies dari root project:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Menjalankan Aplikasi
+## Backend
 
 ```bash
-streamlit run app.py
+cd backend
+python api.py
 ```
+
+Server akan berjalan di `http://localhost:5000`
+
+## Frontend
+
+1. Install dependencies:
+```bash
+cd frontend
+npm install
+```
+
+## Menjalankan Aplikasi
+
+1. Pastikan backend Flask API sudah berjalan di port 5000
+2. Jalankan development server:
+```bash
+npm run dev
+```
+
+Aplikasi akan berjalan di `http://localhost:3000`
 
 ## Struktur Proyek
 
