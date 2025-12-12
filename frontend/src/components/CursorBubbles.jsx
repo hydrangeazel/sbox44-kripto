@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import './CursorBubbles.css'
 
 // Move colors outside component to avoid recreation
@@ -17,30 +17,51 @@ const CursorBubbles = () => {
   const [bubbles, setBubbles] = useState([])
   const bubbleIdRef = useRef(0)
   const lastBubbleTimeRef = useRef(0)
+  const lastBubblePositionRef = useRef({ x: null, y: null })
   const timeoutRefs = useRef([])
 
   useEffect(() => {
     const maxBubbles = 20 // Maximum number of bubbles to keep on screen
-    const throttleDelay = 50 // Minimum time between bubbles (ms)
+    const throttleDelay = 100 // Minimum time between bubbles (ms)
+    const minDistance = 25 // Minimum distance in pixels before creating new bubble
 
     const handleMouseMove = (e) => {
       const now = Date.now()
+      const timeSinceLastBubble = now - lastBubbleTimeRef.current
       
-      // Throttle bubble creation
-      if (now - lastBubbleTimeRef.current < throttleDelay) {
+      // Calculate distance from last bubble position
+      let distanceFromLastBubble = Infinity
+      if (lastBubblePositionRef.current.x !== null && lastBubblePositionRef.current.y !== null) {
+        const dx = e.clientX - lastBubblePositionRef.current.x
+        const dy = e.clientY - lastBubblePositionRef.current.y
+        distanceFromLastBubble = Math.sqrt(dx * dx + dy * dy)
+      }
+      
+      // Create bubble only if enough time has passed OR mouse has moved enough distance
+      // This prevents dense stacking during slow movement while allowing bubbles during fast movement
+      if (timeSinceLastBubble < throttleDelay && distanceFromLastBubble < minDistance) {
         return
       }
       
       lastBubbleTimeRef.current = now
 
+      // Add random position offset (±5px) to prevent perfect line formation
+      const offsetX = (Math.random() - 0.5) * 10 // -5 to +5
+      const offsetY = (Math.random() - 0.5) * 10 // -5 to +5
+
       const newBubble = {
         id: bubbleIdRef.current++,
-        x: e.clientX,
-        y: e.clientY,
-        size: Math.random() * 50 + 30, // Random size between 30-80px (larger)
+        x: e.clientX + offsetX,
+        y: e.clientY + offsetY,
+        size: Math.random() * 25 + 15, // Random size between 15-40px (more natural range)
         color: getRandomColor(),
         delay: Math.random() * 0.2, // Random delay for animation
+        highlightX: Math.random() * 30 + 20, // Random highlight position (20-50% from top)
+        highlightY: Math.random() * 30 + 20, // Random highlight position (20-50% from left)
       }
+
+      // Update last bubble position for distance calculation
+      lastBubblePositionRef.current = { x: e.clientX, y: e.clientY }
 
       setBubbles((prev) => {
         const updated = [...prev, newBubble]
@@ -77,7 +98,9 @@ const CursorBubbles = () => {
             top: `${bubble.y}px`,
             width: `${bubble.size}px`,
             height: `${bubble.size}px`,
-            background: bubble.color,
+            '--bubble-color': bubble.color,
+            '--highlight-x': `${bubble.highlightX}%`,
+            '--highlight-y': `${bubble.highlightY}%`,
             animationDelay: `${bubble.delay}s`,
           }}
         />
