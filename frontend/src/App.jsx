@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
 import Navigation from './components/Navigation'
+import CursorBubbles from './components/CursorBubbles'
 import Home from './pages/Home'
 import TextEncryption from './pages/TextEncryption'
 import ImageEncryption from './pages/ImageEncryption'
@@ -12,6 +13,7 @@ function App() {
   return (
     <Router>
       <div className="app">
+        <CursorBubbles />
         <Navigation />
         <main className="main-content">
           <Routes>

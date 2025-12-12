@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import './SBoxModifier.css'
 
@@ -26,6 +26,9 @@ const SBoxModifier = () => {
   const [metrics, setMetrics] = useState(null)
   const [standardMetrics, setStandardMetrics] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(null)
+  const candidateIdCounter = useRef(0)
 
   useEffect(() => {
     loadDefaultMatrix()
@@ -39,6 +42,7 @@ const SBoxModifier = () => {
       setConstant(`0x${response.data.constant.toString(16).padStart(2, '0')}`)
     } catch (error) {
       console.error('Error loading default matrix:', error)
+      setError('Gagal memuat matriks default. Menggunakan matriks standar.')
     }
   }
 
@@ -48,6 +52,7 @@ const SBoxModifier = () => {
       setStandardMetrics(response.data)
     } catch (error) {
       console.error('Error loading standard metrics:', error)
+      setError('Gagal memuat metrik standar. Beberapa fitur mungkin tidak tersedia.')
     }
   }
 
@@ -77,11 +82,17 @@ const SBoxModifier = () => {
 
   const validateMatrix = async () => {
     setLoading(true)
+    setError(null)
+    setSuccess(null)
     try {
       const response = await axios.post(`${API_BASE_URL}/validate-matrix`, { matrix })
       setValidation(response.data)
+      if (response.data.is_valid) {
+        setSuccess('Matriks valid! Anda dapat membangun S-box kandidat.')
+      }
     } catch (error) {
-      alert('Error validating matrix: ' + (error.response?.data?.error || error.message))
+      const errorMsg = error.response?.data?.error || error.message || 'Terjadi kesalahan saat memvalidasi matriks'
+      setError(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -89,15 +100,25 @@ const SBoxModifier = () => {
 
   const generateSBox = async () => {
     if (!validation?.is_valid) {
-      alert('Matriks harus valid terlebih dahulu!')
+      setError('Matriks harus valid terlebih dahulu!')
       return
     }
 
     setLoading(true)
+    setError(null)
+    setSuccess(null)
     try {
-      const constValue = constant.startsWith('0x') 
-        ? parseInt(constant, 16) 
-        : parseInt(constant, 16)
+      // Parse constant value properly
+      let constValue
+      if (constant.startsWith('0x') || constant.startsWith('0X')) {
+        constValue = parseInt(constant, 16)
+      } else {
+        constValue = parseInt(constant, 16)
+      }
+      
+      if (isNaN(constValue)) {
+        throw new Error('Format konstanta tidak valid. Gunakan format hex (contoh: 0x63)')
+      }
       
       const response = await axios.post(`${API_BASE_URL}/generate-sbox`, {
         matrix,
@@ -105,18 +126,19 @@ const SBoxModifier = () => {
       })
 
       const newCandidate = {
-        id: candidates.length,
+        id: candidateIdCounter.current++,
         name: `Kandidat ${candidates.length + 1}`,
         matrix: response.data.matrix,
         constant: response.data.constant,
         sbox: response.data.sbox
       }
 
-      setCandidates([...candidates, newCandidate])
+      setCandidates(prev => [...prev, newCandidate])
       setSelectedCandidate(newCandidate)
-      alert('S-box kandidat berhasil dibuat!')
+      setSuccess(`S-box kandidat "${newCandidate.name}" berhasil dibuat!`)
     } catch (error) {
-      alert('Error generating S-box: ' + (error.response?.data?.error || error.message))
+      const errorMsg = error.response?.data?.error || error.message || 'Terjadi kesalahan saat membangun S-box'
+      setError(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -124,11 +146,13 @@ const SBoxModifier = () => {
 
   const evaluateSecurity = async (sbox) => {
     setLoading(true)
+    setError(null)
     try {
       const response = await axios.post(`${API_BASE_URL}/evaluate-security`, { sbox })
       return response.data
     } catch (error) {
-      alert('Error evaluating security: ' + (error.response?.data?.error || error.message))
+      const errorMsg = error.response?.data?.error || error.message || 'Terjadi kesalahan saat mengevaluasi keamanan'
+      setError(errorMsg)
       return null
     } finally {
       setLoading(false)
@@ -136,16 +160,20 @@ const SBoxModifier = () => {
   }
 
   const handleEvaluate = async () => {
-    if (!selectedCandidate) return
+    if (!selectedCandidate) {
+      setError('Pilih kandidat terlebih dahulu!')
+      return
+    }
 
     const metricsData = await evaluateSecurity(selectedCandidate.sbox)
     if (metricsData) {
       setMetrics(metricsData)
-      // Update candidate with metrics
-      setCandidates(candidates.map(c =>
+      // Update candidate with metrics using functional update
+      setCandidates(prev => prev.map(c =>
         c.id === selectedCandidate.id ? { ...c, metrics: metricsData } : c
       ))
-      setSelectedCandidate({ ...selectedCandidate, metrics: metricsData })
+      setSelectedCandidate(prev => prev ? { ...prev, metrics: metricsData } : null)
+      setSuccess('Evaluasi keamanan selesai!')
     }
   }
 
@@ -161,10 +189,33 @@ const SBoxModifier = () => {
     return table
   }
 
+  // Auto-hide messages after 5 seconds
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError(null)
+        setSuccess(null)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [error, success])
+
   return (
     <div className="sbox-modifier">
       <h1>🔧 AES S-Box Modifier</h1>
       <p className="subtitle">Modul untuk membangun dan mengevaluasi kandidat S-box baru menggunakan matriks affine kustom.</p>
+
+      {/* Error/Success Messages */}
+      {error && (
+        <div className="validation-message" style={{ background: 'rgba(213, 105, 137, 0.2)', borderLeft: '4px solid #D56989' }}>
+          <strong>⚠️ Error:</strong> {error}
+        </div>
+      )}
+      {success && (
+        <div className="validation-message" style={{ background: 'rgba(194, 220, 128, 0.2)', borderLeft: '4px solid #C2DC80' }}>
+          <strong>✅ Sukses:</strong> {success}
+        </div>
+      )}
 
       {/* Input Section */}
       <div className="section">

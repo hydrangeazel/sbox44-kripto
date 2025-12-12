@@ -1,20 +1,79 @@
 .page {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-radius: 24px;
+  padding: 3rem;
+  box-shadow: 
+    0 8px 32px rgba(213, 105, 137, 0.15),
+    0 4px 16px rgba(194, 220, 128, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2);
   min-height: 400px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.page::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(234, 156, 175, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(60px);
+  z-index: 0;
+}
+
+.page::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(194, 220, 128, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(50px);
+  z-index: 0;
 }
 
 .page h1 {
-  color: #333;
-  margin-bottom: 1rem;
-  font-size: 2.5rem;
+  background: linear-gradient(135deg, 
+    #D56989 0%, 
+    #EA9CAF 50%,
+    #C2DC80 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1.5rem;
+  font-size: 2.8rem;
+  font-weight: 800;
+  letter-spacing: -1px;
+  position: relative;
+  z-index: 1;
 }
 
 .page p {
-  color: #666;
-  line-height: 1.6;
-  margin-bottom: 0.5rem;
+  color: rgba(213, 105, 137, 0.8);
+  line-height: 1.8;
+  margin-bottom: 0.75rem;
+  font-size: 1.05rem;
+  position: relative;
+  z-index: 1;
 }
 
+@media (max-width: 768px) {
+  .page {
+    padding: 2rem;
+    border-radius: 20px;
+  }
+  
+  .page h1 {
+    font-size: 2rem;
+  }
+}

@@ -15,12 +15,31 @@ from components.ui_sbox_modifier import (
     AES_AFFINE_CONSTANT
 )
 from analytics import (
-    calc_nl_measure, calc_sac_measure, calc_bic_nl_measure, calc_bic_sac_measure
+    calc_nl_measure, calc_sac_measure, calc_bic_nl_measure, calc_bic_sac_measure,
+    calc_lap_measure, calc_dap_measure, calc_to_measure, calc_du_measure, calc_ad_measure
 )
 from aes_engine.utils import SBOX
+from aes_engine.modes import AESModes
+from image_engine.encoder import encrypt_image
+from image_engine.decoder import decrypt_image
+from PIL import Image
+import base64
+import io
+import json
+import os
+import time
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for React frontend
+
+def calculate_security_score(nl, sac, bic_nl, bic_sac):
+    """Calculate security score from metrics (extracted to avoid duplication)"""
+    nl_score = (nl / 112.0) * 100
+    sac_score = (1.0 - abs(sac - 0.5) * 2) * 100
+    bic_nl_score = (bic_nl / 112.0) * 100
+    bic_sac_score = max(0, (1.0 - bic_sac) * 100)
+    total_score = (nl_score * 0.3 + sac_score * 0.3 + bic_nl_score * 0.2 + bic_sac_score * 0.2)
+    return total_score
 
 @app.route('/api/health', methods=['GET'])
 def health():
@@ -58,6 +77,12 @@ def generate_sbox():
         if not matrix:
             return jsonify({'error': 'Matrix is required'}), 400
         
+        # Validate constant is a valid 8-bit value
+        try:
+            constant = int(constant) & 0xFF
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Constant must be a valid integer (0-255)'}), 400
+        
         # Validasi dulu
         is_valid, det, _, _, _ = validate_affine_matrix(matrix)
         if not is_valid:
@@ -88,12 +113,8 @@ def evaluate_security():
         bic_nl = calc_bic_nl_measure(sbox)
         bic_sac = calc_bic_sac_measure(sbox)
         
-        # Hitung skor keamanan
-        nl_score = (nl / 112.0) * 100
-        sac_score = (1.0 - abs(sac - 0.5) * 2) * 100
-        bic_nl_score = (bic_nl / 112.0) * 100
-        bic_sac_score = max(0, (1.0 - bic_sac) * 100)
-        total_score = (nl_score * 0.3 + sac_score * 0.3 + bic_nl_score * 0.2 + bic_sac_score * 0.2)
+        # Hitung skor keamanan menggunakan fungsi terpusat
+        total_score = calculate_security_score(nl, sac, bic_nl, bic_sac)
         
         return jsonify({
             'nl': nl,
@@ -120,11 +141,8 @@ def get_standard_metrics():
     bic_nl = calc_bic_nl_measure(SBOX)
     bic_sac = calc_bic_sac_measure(SBOX)
     
-    nl_score = (nl / 112.0) * 100
-    sac_score = (1.0 - abs(sac - 0.5) * 2) * 100
-    bic_nl_score = (bic_nl / 112.0) * 100
-    bic_sac_score = max(0, (1.0 - bic_sac) * 100)
-    total_score = (nl_score * 0.3 + sac_score * 0.3 + bic_nl_score * 0.2 + bic_sac_score * 0.2)
+    # Hitung skor keamanan menggunakan fungsi terpusat
+    total_score = calculate_security_score(nl, sac, bic_nl, bic_sac)
     
     return jsonify({
         'nl': nl,
@@ -141,6 +159,232 @@ def get_default_matrix():
         'matrix': AES_AFFINE_MATRIX,
         'constant': AES_AFFINE_CONSTANT
     })
+
+def load_sbox44():
+    """Load S-box44 from JSON file"""
+    current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    json_path = os.path.join(current_dir, 'assets', 'sbox44.json')
+    try:
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+            sbox_values = data.get('sbox44') or data.get('sbox')
+            if not sbox_values or len(sbox_values) != 256:
+                return None
+            return sbox_values
+    except:
+        return None
+
+@app.route('/api/encrypt-text', methods=['POST'])
+def encrypt_text():
+    """Encrypt text using AES"""
+    try:
+        data = request.json
+        plaintext = data.get('plaintext')
+        key = data.get('key')
+        mode = data.get('mode', 'ECB')
+        iv = data.get('iv', '')
+        use_sbox44 = data.get('use_sbox44', False)
+        
+        if not plaintext:
+            return jsonify({'error': 'Plaintext is required'}), 400
+        if not key or len(key) != 16:
+            return jsonify({'error': 'Key must be exactly 16 characters'}), 400
+        if mode == 'CBC' and (not iv or len(iv) != 16):
+            return jsonify({'error': 'IV must be exactly 16 characters for CBC mode'}), 400
+        
+        cipher = AESModes(key, use_sbox44=use_sbox44)
+        if mode == 'ECB':
+            ciphertext_bytes = cipher.encrypt_ecb(plaintext)
+        else:
+            ciphertext_bytes = cipher.encrypt_cbc(plaintext, iv)
+        
+        return jsonify({
+            'ciphertext_hex': ciphertext_bytes.hex(),
+            'ciphertext_b64': base64.b64encode(ciphertext_bytes).decode('utf-8'),
+            'length': len(ciphertext_bytes)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/decrypt-text', methods=['POST'])
+def decrypt_text():
+    """Decrypt text using AES"""
+    try:
+        data = request.json
+        ciphertext_hex = data.get('ciphertext_hex')
+        key = data.get('key')
+        mode = data.get('mode', 'ECB')
+        iv = data.get('iv', '')
+        use_sbox44 = data.get('use_sbox44', False)
+        
+        if not ciphertext_hex:
+            return jsonify({'error': 'Ciphertext is required'}), 400
+        if not key or len(key) != 16:
+            return jsonify({'error': 'Key must be exactly 16 characters'}), 400
+        if mode == 'CBC' and (not iv or len(iv) != 16):
+            return jsonify({'error': 'IV must be exactly 16 characters for CBC mode'}), 400
+        
+        ciphertext_bytes = bytes.fromhex(ciphertext_hex)
+        cipher = AESModes(key, use_sbox44=use_sbox44)
+        
+        if mode == 'ECB':
+            decrypted = cipher.decrypt_ecb(ciphertext_bytes)
+        else:
+            decrypted = cipher.decrypt_cbc(ciphertext_bytes, iv)
+        
+        return jsonify({
+            'plaintext': decrypted.decode('utf-8', errors='ignore')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/encrypt-image', methods=['POST'])
+def encrypt_image_api():
+    """Encrypt image using AES"""
+    try:
+        if 'image' not in request.files:
+            return jsonify({'error': 'Image file is required'}), 400
+        
+        key = request.form.get('key')
+        use_sbox44 = request.form.get('use_sbox44', 'false').lower() == 'true'
+        
+        if not key or len(key) != 16:
+            return jsonify({'error': 'Key must be exactly 16 characters'}), 400
+        
+        image_file = request.files['image']
+        if image_file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Read image file
+        image_data = image_file.read()
+        image = Image.open(io.BytesIO(image_data))
+        
+        # Convert to RGB if necessary (handles RGBA, P, etc.)
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        encrypted_img = encrypt_image(image, key, use_sbox44=use_sbox44)
+        
+        # Convert to base64
+        buffer = io.BytesIO()
+        encrypted_img.save(buffer, format='PNG')
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        
+        return jsonify({
+            'image_b64': img_str,
+            'format': 'PNG'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/decrypt-image', methods=['POST'])
+def decrypt_image_api():
+    """Decrypt image using AES"""
+    try:
+        if 'image' not in request.files:
+            return jsonify({'error': 'Image file is required'}), 400
+        
+        key = request.form.get('key')
+        use_sbox44 = request.form.get('use_sbox44', 'false').lower() == 'true'
+        
+        if not key or len(key) != 16:
+            return jsonify({'error': 'Key must be exactly 16 characters'}), 400
+        
+        image_file = request.files['image']
+        if image_file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Read image file
+        image_data = image_file.read()
+        image = Image.open(io.BytesIO(image_data))
+        
+        # Convert to RGB if necessary
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        decrypted_img = decrypt_image(image, key, use_sbox44=use_sbox44)
+        
+        # Convert to base64
+        buffer = io.BytesIO()
+        decrypted_img.save(buffer, format='PNG')
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        
+        return jsonify({
+            'image_b64': img_str,
+            'format': 'PNG'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/compare-encrypt', methods=['POST'])
+def compare_encrypt():
+    """Encrypt data for comparison"""
+    try:
+        data = request.json
+        plaintext = data.get('plaintext')
+        key = data.get('key')
+        use_sbox44 = data.get('use_sbox44', False)
+        output_format = data.get('output_format', 'Hex')
+        
+        if not plaintext:
+            return jsonify({'error': 'Plaintext is required'}), 400
+        if not key or len(key) != 16:
+            return jsonify({'error': 'Key must be exactly 16 characters'}), 400
+        
+        cipher = AESModes(key, use_sbox44=use_sbox44)
+        if use_sbox44:
+            encrypted = cipher.encrypt_cbc(plaintext, "vektorinisial123")
+        else:
+            encrypted = cipher.encrypt_ecb(plaintext)
+        
+        if output_format == 'Hex':
+            output = encrypted.hex()
+        else:
+            output = base64.b64encode(encrypted).decode()
+        
+        return jsonify({
+            'ciphertext': output,
+            'format': output_format
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/compare-metrics', methods=['GET'])
+def compare_metrics():
+    """Get cryptographic metrics for comparison"""
+    try:
+        use_sbox44 = request.args.get('use_sbox44', 'false').lower() == 'true'
+        
+        sbox = load_sbox44() if use_sbox44 else SBOX
+        if sbox is None:
+            return jsonify({'error': 'S-box not found'}), 404
+        
+        start_time = time.time()
+        nl_val = calc_nl_measure(sbox)
+        sac_val = calc_sac_measure(sbox)
+        bic_nl_val = calc_bic_nl_measure(sbox)
+        bic_sac_val = calc_bic_sac_measure(sbox)
+        lap_val = calc_lap_measure(sbox)
+        dap_val = calc_dap_measure(sbox)
+        to_val = calc_to_measure(sbox)
+        du_val = calc_du_measure(sbox)
+        ad_val = calc_ad_measure(sbox)
+        elapsed_time = int((time.time() - start_time) * 1000)
+        
+        return jsonify({
+            'nl': nl_val,
+            'sac': sac_val,
+            'bic_nl': bic_nl_val,
+            'bic_sac': bic_sac_val,
+            'lap': lap_val,
+            'dap': dap_val,
+            'to': to_val,
+            'du': du_val,
+            'ad': ad_val,
+            'time_ms': elapsed_time
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
