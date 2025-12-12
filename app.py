@@ -2,6 +2,7 @@ import streamlit as st
 from components.ui_text import render_text_ui
 from components.ui_image import render_image_ui
 from components.ui_comparison import render_comparison_ui
+from components.ui_sbox_modifier import render_sbox_modifier_ui
 
 # Konfigurasi Halaman
 st.set_page_config(
@@ -24,7 +25,7 @@ st.sidebar.title("🔐 AES Crypto Tool")
 st.sidebar.markdown("---")
 menu = st.sidebar.radio(
     "Pilih Mode:",
-    ("Text Encryption", "Image Encryption", "S-Box Comparison")
+    ("Text Encryption", "Image Encryption", "S-Box Comparison", "AES S-Box Modifier")
 )
 
 st.sidebar.markdown("---")
@@ -44,3 +45,5 @@ elif menu == "Image Encryption":
     render_image_ui()
 elif menu == "S-Box Comparison":
     render_comparison_ui()
+elif menu == "AES S-Box Modifier":
+    render_sbox_modifier_ui()
