@@ -136,11 +136,7 @@
 }
 
 /* Reduce bubbles on mobile for performance - but keep them visible for testing */
-@media (max-width: 768px) {
-  .cursor-bubbles-container {
-    /* Keep enabled for now - can disable later if needed */
-  }
-}
+/* Mobile styles can be added here if needed */
 
 /* Optional: Disable on devices that prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
