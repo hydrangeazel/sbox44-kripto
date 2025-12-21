@@ -1,5 +1,6 @@
 .home {
   padding: 2rem 0;
+  /* Background inherited from body gradient in index.css */
 }
 
 .home-hero {
