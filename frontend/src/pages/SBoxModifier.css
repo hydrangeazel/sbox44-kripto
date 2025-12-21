@@ -3,7 +3,6 @@
   margin: 0 auto;
   position: relative;
   padding: 2rem 0;
-  /* Background inherited from body gradient in index.css */
 }
 
 .sbox-modifier::before {
@@ -762,9 +761,66 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   font-size: 1.5rem;
   font-weight: 700;
+}
+
+.display-format-toggle {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px;
+  border: 1px solid rgba(213, 105, 137, 0.2);
+  box-shadow: 
+    0 2px 8px rgba(213, 105, 137, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.display-format-toggle label:first-child {
+  display: block;
+  font-weight: 600;
+  color: #D56989;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.radio-group {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #333;
+  transition: all 0.2s ease;
+}
+
+.radio-label:hover {
+  color: #D56989;
+}
+
+.radio-label input[type="radio"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  cursor: pointer;
+  accent-color: #D56989;
+  transition: all 0.2s ease;
+}
+
+.radio-label input[type="radio"]:checked {
+  transform: scale(1.1);
+}
+
+.radio-label span {
+  user-select: none;
 }
 
 .sbox-table-container {
@@ -791,6 +847,7 @@
 .sbox-table th,
 .sbox-table td {
   padding: 0.6rem;
+  min-width: 2.5rem;
   text-align: center;
   border: 1px solid rgba(213, 105, 137, 0.15);
   border-radius: 10px;
