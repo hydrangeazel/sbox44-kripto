@@ -11,8 +11,9 @@ const Navigation = () => {
 
   const menuItems = [
     { id: 'home', label: 'Home', path: '/', section: 'home' },
-    { id: 'de-encrypt', label: 'De-Encrypt', path: '/de-encrypt', section: 'de-encrypt' },
-    { id: 'sbox-maker', label: 'S-box Maker', path: '/sbox-maker', section: 'sbox-maker' },
+    { id: 'de-encrypt', label: 'De-Encrypt', path: '/', section: 'de-encrypt' },
+    { id: 'image-encryption', label: 'Image Encryption', path: '/', section: 'image-encryption' },
+    { id: 'sbox-maker', label: 'S-box Maker', path: '/', section: 'sbox-maker' },
     { id: 'about', label: 'About', path: '/', section: 'about' }
   ]
 

@@ -7,9 +7,11 @@ const LandingPage = () => {
   const navigate = useNavigate()
   const homeRef = useRef(null)
   const deEncryptRef = useRef(null)
+  const imageEncryptionRef = useRef(null)
   const sboxMakerRef = useRef(null)
   const aboutRef = useRef(null)
   const deEncryptIntroRef = useRef(null)
+  const imageEncryptionIntroRef = useRef(null)
   const sboxMakerIntroRef = useRef(null)
 
   useEffect(() => {
@@ -69,6 +71,16 @@ const LandingPage = () => {
     }
     setTimeout(() => {
       navigate('/de-encrypt')
+    }, 300)
+  }
+
+  const handleImageEncryptionStart = () => {
+    if (imageEncryptionIntroRef.current) {
+      imageEncryptionIntroRef.current.style.opacity = '0'
+      imageEncryptionIntroRef.current.style.transform = 'translateY(-20px)'
+    }
+    setTimeout(() => {
+      navigate('/image-encryption')
     }, 300)
   }
 
@@ -170,6 +182,41 @@ const LandingPage = () => {
                   <img 
                     src="/features/de-encrypt.png" 
                     alt="De-Encrypt Feature" 
+                    className="feature-intro-image"
+                    onError={(e) => { e.target.style.display = 'none' }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Image Encryption Section */}
+      <section id="image-encryption" ref={imageEncryptionRef} className="content-section">
+        <div className="section-container">
+          <div ref={imageEncryptionIntroRef} className="feature-intro">
+            <div className="feature-intro-container">
+              <div className="feature-intro-left">
+                <h2 className="feature-intro-title">Image Encryption</h2>
+                <p className="feature-intro-subtitle">
+                  Encrypt and decrypt images using AES encryption with multiple modes (ECB, CBC, CFB) 
+                  and both standard AES and S-Box44 variants. Analyze security metrics including 
+                  correlation coefficient, NPCR, UACI, histogram uniformity, and entropy for 
+                  comprehensive cryptographic evaluation.
+                </p>
+                <button 
+                  className="feature-start-button"
+                  onClick={handleImageEncryptionStart}
+                >
+                  Start
+                </button>
+              </div>
+              <div className="feature-intro-right">
+                <div className="feature-intro-card feature-intro-card-imageencrypt">
+                  <img 
+                    src="/features/image-encrypt.png" 
+                    alt="Image Encryption Feature" 
                     className="feature-intro-image"
                     onError={(e) => { e.target.style.display = 'none' }}
                   />

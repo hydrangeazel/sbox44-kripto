@@ -1,0 +1,491 @@
+.image-encryption-page {
+  width: 100%;
+  max-width: 100vw;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  background: transparent;
+  padding-top: 6rem;
+}
+
+/* Hero Section */
+.image-encryption-hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 2rem;
+  width: 100%;
+  max-width: 100vw;
+}
+
+.image-encryption-intro {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.image-encryption-intro-container {
+  max-width: 1400px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+
+.image-encryption-intro-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  z-index: 2;
+}
+
+.image-encryption-intro-title {
+  font-family: var(--font-family-primary, 'Inter', sans-serif);
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 900;
+  color: #000;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.image-encryption-intro-subtitle {
+  font-family: var(--font-family-primary, 'Inter', sans-serif);
+  font-size: clamp(1.125rem, 2vw, 1.5rem);
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 600px;
+}
+
+.image-encryption-start-button {
+  font-family: var(--font-family-primary, 'Inter', sans-serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #fff;
+  background: #000;
+  border: none;
+  padding: 1rem 3rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+  align-self: flex-start;
+  margin-top: 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  will-change: transform;
+}
+
+.image-encryption-start-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 20px rgba(194, 220, 128, 0.3);
+}
+
+.image-encryption-start-button:active {
+  transform: scale(0.98);
+}
+
+.image-encryption-intro-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.image-encryption-intro-card {
+  width: 100%;
+  max-width: 500px;
+  aspect-ratio: 4 / 3;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.image-encryption-intro-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2) 0%, transparent 50%),
+    radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.15) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Mock UI Preview */
+.image-encryption-mock-ui {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
+  z-index: 2;
+  filter: blur(2px);
+  opacity: 0.7;
+}
+
+.mock-upload-panel {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.mock-upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  border: 2px dashed rgba(213, 105, 137, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.mock-upload-icon {
+  font-size: 2rem;
+}
+
+.mock-upload-text {
+  font-size: 0.9rem;
+  color: rgba(213, 105, 137, 0.8);
+  font-weight: 600;
+}
+
+.mock-controls-panel {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mock-control-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.mock-label {
+  color: rgba(213, 105, 137, 0.7);
+  font-weight: 600;
+}
+
+.mock-value {
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: 500;
+}
+
+.mock-output-panel {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mock-image-preview {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, 
+    rgba(213, 105, 137, 0.2) 0%,
+    rgba(234, 156, 175, 0.15) 50%,
+    rgba(194, 220, 128, 0.1) 100%
+  );
+}
+
+.encrypted-preview {
+  background: linear-gradient(135deg, 
+    rgba(194, 220, 128, 0.2) 0%,
+    rgba(234, 156, 175, 0.15) 50%,
+    rgba(213, 105, 137, 0.1) 100%
+  );
+}
+
+.mock-image-placeholder {
+  color: rgba(213, 105, 137, 0.6);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* 3D Decorative Elements */
+.decorative-3d {
+  position: absolute;
+  top: 5vh;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.deco-object {
+  position: absolute;
+  animation: float 6s ease-in-out infinite;
+  will-change: transform;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deco-star {
+  top: 10%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.deco-cube {
+  bottom: 15%;
+  left: 10%;
+  animation-delay: 3s;
+}
+
+.deco-flower {
+  bottom: 10%;
+  right: 10%;
+  animation-delay: 4.5s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-30px) translateX(10px);
+  }
+  50% {
+    transform: translateY(-40px) translateX(0);
+  }
+  75% {
+    transform: translateY(-30px) translateX(-10px);
+  }
+}
+
+.deco-image {
+  object-fit: contain;
+  opacity: 0.9;
+  animation: rotate 20s linear infinite;
+  will-change: transform;
+}
+
+.deco-star .deco-image {
+  width: 150px;
+  height: 150px;
+}
+
+.deco-cube .deco-image {
+  width: 140px;
+  height: 140px;
+}
+
+.deco-flower .deco-image {
+  width: 160px;
+  height: 160px;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Features Section */
+.image-encryption-features {
+  padding: 6rem 2rem 4rem;
+  position: relative;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  background: transparent;
+}
+
+.image-encryption-features-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.image-encryption-features-title {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 800;
+  color: #000;
+  text-align: center;
+  margin-bottom: 3rem;
+  letter-spacing: -0.02em;
+}
+
+.image-encryption-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.image-encryption-feature-card {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-radius: 24px;
+  padding: 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(213, 105, 137, 0.15);
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.image-encryption-feature-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(213, 105, 137, 0.25);
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.image-encryption-feature-card h4 {
+  font-family: 'Inter', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #000;
+  margin: 0;
+}
+
+.image-encryption-feature-card p {
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1.8;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .image-encryption-hero {
+    padding: 1rem;
+  }
+
+  .image-encryption-intro {
+    padding: 3rem 1rem;
+    min-height: 60vh;
+  }
+
+  .image-encryption-intro-container {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    text-align: center;
+  }
+
+  .image-encryption-intro-left {
+    align-items: center;
+    text-align: center;
+  }
+
+  .image-encryption-intro-subtitle {
+    max-width: 100%;
+  }
+
+  .image-encryption-start-button {
+    align-self: center;
+    padding: 0.875rem 2.5rem;
+    font-size: 1.125rem;
+  }
+
+  .image-encryption-intro-card {
+    max-width: 400px;
+  }
+
+  .image-encryption-features {
+    padding: 4rem 1rem 2rem;
+  }
+
+  .image-encryption-features-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .image-encryption-feature-card {
+    padding: 2rem;
+  }
+
+  .deco-object {
+    transform: scale(0.7);
+  }
+}
+
+@media (max-width: 480px) {
+  .image-encryption-intro {
+    padding: 2rem 1rem;
+    min-height: 50vh;
+  }
+
+  .image-encryption-intro-container {
+    gap: 2rem;
+  }
+
+  .image-encryption-intro-title {
+    font-size: clamp(2.5rem, 10vw, 4rem);
+  }
+
+  .image-encryption-intro-subtitle {
+    font-size: clamp(1rem, 3vw, 1.25rem);
+  }
+
+  .image-encryption-start-button {
+    padding: 0.875rem 2rem;
+    font-size: 1rem;
+  }
+
+  .image-encryption-intro-card {
+    max-width: 100%;
+    aspect-ratio: 16 / 10;
+  }
+
+  .deco-object {
+    transform: scale(0.5);
+  }
+}
+

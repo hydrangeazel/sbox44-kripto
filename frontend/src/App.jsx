@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Navigation from './components/Navigation'
 import LandingPage from './pages/LandingPage'
 import TextEncryptionPage from './pages/TextEncryptionPage'
+import ImageEncryptionPage from './pages/ImageEncryptionPage'
 import SBoxModifierPage from './pages/SBoxModifierPage'
 import './App.css'
 
@@ -14,6 +15,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/de-encrypt" element={<TextEncryptionPage />} />
+          <Route path="/image-encryption" element={<ImageEncryptionPage />} />
           <Route path="/sbox-maker" element={<SBoxModifierPage />} />
         </Routes>
       </div>
