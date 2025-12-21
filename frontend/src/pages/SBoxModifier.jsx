@@ -31,6 +31,7 @@ const SBoxModifier = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
+  const [displayFormat, setDisplayFormat] = useState('hex') // 'hex' or 'dec'
   const candidateIdCounter = useRef(0)
 
   useEffect(() => {
@@ -215,12 +216,17 @@ const SBoxModifier = () => {
     }
   }
 
-  const formatSBoxTable = (sbox) => {
+  const formatSBoxTable = (sbox, format = 'hex') => {
     const table = []
     for (let i = 0; i < 16; i++) {
       const row = []
       for (let j = 0; j < 16; j++) {
-        row.push(sbox[i * 16 + j].toString(16).padStart(2, '0'))
+        const value = sbox[i * 16 + j]
+        if (format === 'hex') {
+          row.push(value.toString(16).padStart(2, '0').toUpperCase())
+        } else {
+          row.push(value.toString())
+        }
       }
       table.push(row)
     }
@@ -524,6 +530,34 @@ const SBoxModifier = () => {
             <>
               <div className="sbox-display">
                 <h3>S-Box: {selectedCandidate.name}</h3>
+                
+                {/* Display Format Toggle */}
+                <div className="display-format-toggle">
+                  <label>Format Tampilan:</label>
+                  <div className="radio-group">
+                    <label className="radio-label">
+                      <input
+                        type="radio"
+                        name="displayFormat"
+                        value="hex"
+                        checked={displayFormat === 'hex'}
+                        onChange={(e) => setDisplayFormat(e.target.value)}
+                      />
+                      <span>Hexadecimal (HEX)</span>
+                    </label>
+                    <label className="radio-label">
+                      <input
+                        type="radio"
+                        name="displayFormat"
+                        value="dec"
+                        checked={displayFormat === 'dec'}
+                        onChange={(e) => setDisplayFormat(e.target.value)}
+                      />
+                      <span>Decimal (DEC)</span>
+                    </label>
+                  </div>
+                </div>
+
                 <div className="sbox-table-container">
                   <table className="sbox-table">
                     <thead>
@@ -535,11 +569,11 @@ const SBoxModifier = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {formatSBoxTable(selectedCandidate.sbox).map((row, i) => (
+                      {formatSBoxTable(selectedCandidate.sbox, displayFormat).map((row, i) => (
                         <tr key={i}>
                           <th>{i.toString(16).toUpperCase()}</th>
                           {row.map((cell, j) => (
-                            <td key={j}>{cell.toUpperCase()}</td>
+                            <td key={j}>{cell}</td>
                           ))}
                         </tr>
                       ))}
