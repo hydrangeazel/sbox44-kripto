@@ -30,6 +30,9 @@ import io
 import json
 import os
 import time
+import math
+import random
+from collections import Counter
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for React frontend
@@ -325,6 +328,137 @@ def decrypt_text():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/analyze-ciphertext', methods=['POST'])
+def analyze_ciphertext():
+    """Analisis statistik ciphertext dengan perhitungan kriptografi"""
+    try:
+        data = request.json
+        ciphertext_hex = data.get('ciphertext_hex')
+        
+        if not ciphertext_hex:
+            return jsonify({'error': 'Ciphertext is required'}), 400
+        
+        ciphertext_bytes = bytes.fromhex(ciphertext_hex)
+        total_bytes = len(ciphertext_bytes)
+        
+        # ===== 1. SHANNON ENTROPY (Base 2) =====
+        byte_counts = Counter(ciphertext_bytes)
+        entropy = 0.0
+        for count in byte_counts.values():
+            probability = count / total_bytes
+            if probability > 0:
+                entropy -= probability * math.log2(probability)
+        
+        # ===== 2. CHI-SQUARE TEST (Uniformity Test) =====
+        # Chi-square test untuk menguji apakah distribusi byte uniform
+        # Expected frequency = total_bytes / 256 (karena ada 256 kemungkinan byte)
+        # Rumus: χ² = Σ((Observed - Expected)² / Expected)
+        # Dimana Expected = total_bytes / 256
+        expected_freq = total_bytes / 256.0
+        chi_square = 0.0
+        
+        # Hitung chi-square untuk semua 256 kemungkinan byte
+        # Hanya hitung jika expected_freq > 0 (menghindari division by zero)
+        if expected_freq > 0:
+            for byte_value in range(256):
+                observed_count = byte_counts.get(byte_value, 0)
+                # Rumus: (Observed - Expected)² / Expected
+                chi_square += ((observed_count - expected_freq) ** 2) / expected_freq
+        
+        # ===== 3. AVALANCHE EFFECT (Fixed Logic) =====
+        avalanche_score = None
+        if data.get('plaintext') and data.get('key'):
+            try:
+                plaintext = data.get('plaintext')
+                key = data.get('key')
+                use_sbox44 = data.get('use_sbox44', False)
+                mode = data.get('mode', 'ECB')
+                iv = data.get('iv', '')
+                
+                # Konversi plaintext ke bytes jika string
+                if isinstance(plaintext, str):
+                    plaintext_bytes = plaintext.encode('utf-8')
+                else:
+                    plaintext_bytes = plaintext
+                
+                # Inisialisasi cipher
+                cipher = AESModes(key, use_sbox44=use_sbox44)
+                
+                # Step a: Generate Ciphertext_1 dari plaintext asli
+                if mode == 'ECB':
+                    ciphertext_1 = cipher.encrypt_ecb(plaintext)
+                else:
+                    ciphertext_1 = cipher.encrypt_cbc(plaintext, iv)
+                
+                # Step b: Flip tepat 1 bit pada plaintext secara acak
+                # Pilih posisi bit secara acak
+                if len(plaintext_bytes) > 0:
+                    # Pilih byte secara acak
+                    byte_pos = random.randint(0, len(plaintext_bytes) - 1)
+                    # Pilih bit dalam byte tersebut secara acak (0-7)
+                    bit_pos = random.randint(0, 7)
+                    
+                    # Flip bit tersebut
+                    modified_bytes = bytearray(plaintext_bytes)
+                    modified_bytes[byte_pos] ^= (1 << bit_pos)  # XOR dengan bit mask
+                    modified_plaintext = bytes(modified_bytes)
+                    
+                    # Step c: Generate Ciphertext_2 dari plaintext yang sudah diubah
+                    if mode == 'ECB':
+                        ciphertext_2 = cipher.encrypt_ecb(modified_plaintext)
+                    else:
+                        ciphertext_2 = cipher.encrypt_cbc(modified_plaintext, iv)
+                    
+                    # Step d: Hitung Hamming Distance (jumlah bit yang berbeda)
+                    # Gunakan panjang yang sama untuk perbandingan (ambil yang lebih pendek)
+                    min_len = min(len(ciphertext_1), len(ciphertext_2))
+                    
+                    # 1. Inisialisasi
+                    total_bit_difference = 0
+                    total_bits = 0
+                    
+                    # 2. Loop ke seluruh byte ciphertext
+                    for i in range(min_len):
+                        byte1 = ciphertext_1[i]
+                        byte2 = ciphertext_2[i]
+                        
+                        # 3. Hitung Hamming Distance (jumlah bit beda) antara cipher1[i] dan cipher2[i]
+                        xor_result = byte1 ^ byte2
+                        bit_difference = bin(xor_result).count('1')
+                        
+                        # 4. Tambahkan ke totalBitDifference
+                        total_bit_difference += bit_difference
+                        
+                        # 5. Tambahkan 8 ke totalBits
+                        total_bits += 8
+                    
+                    # 6. SETELAH LOOP SELESAI, hitung persentase
+                    # avalancheScore = (totalBitDifference / totalBits)
+                    # Hasil harus antara 0.0 - 1.0 (akan dikonversi ke persentase di frontend)
+                    if total_bits > 0:
+                        avalanche_score = total_bit_difference / total_bits
+                    else:
+                        avalanche_score = 0.0
+                else:
+                    avalanche_score = 0.0
+                    
+            except Exception as e:
+                # Log error untuk debugging
+                print(f"Error calculating avalanche effect: {e}")
+                avalanche_score = None
+        
+        return jsonify({
+            'entropy': entropy,
+            'max_entropy': 8.0,  # Maximum entropy untuk byte (8 bits)
+            'chi_square': chi_square,
+            'byte_distribution': dict(byte_counts),
+            'unique_bytes': len(byte_counts),
+            'total_bytes': total_bytes,
+            'avalanche_score': avalanche_score
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/encrypt-image', methods=['POST'])
 def encrypt_image_api():
     """Encrypt image using AES"""
@@ -447,27 +581,38 @@ def compare_metrics():
             return jsonify({'error': 'S-box not found'}), 404
         
         start_time = time.time()
+        # Basic Properties
+        basic_props = check_sbox_basic_properties(sbox)
+        # Existing metrics
         nl_val = calc_nl_measure(sbox)
         sac_val = calc_sac_measure(sbox)
         bic_nl_val = calc_bic_nl_measure(sbox)
         bic_sac_val = calc_bic_sac_measure(sbox)
+        # New metrics
         lap_val = calc_lap_measure(sbox)
         dap_val = calc_dap_measure(sbox)
         to_val = calc_to_measure(sbox)
         du_val = calc_du_measure(sbox)
         ad_val = calc_ad_measure(sbox)
+        ci_val = calc_ci_measure(sbox)
         elapsed_time = int((time.time() - start_time) * 1000)
         
         return jsonify({
+            # Basic Properties
+            'is_bijective': basic_props['is_bijective'],
+            'is_balanced': basic_props['is_balanced'],
+            # Existing metrics
             'nl': nl_val,
             'sac': sac_val,
             'bic_nl': bic_nl_val,
             'bic_sac': bic_sac_val,
+            # New metrics
             'lap': lap_val,
             'dap': dap_val,
             'to': to_val,
             'du': du_val,
             'ad': ad_val,
+            'ci': ci_val,
             'time_ms': elapsed_time
         })
     except Exception as e:
