@@ -21,6 +21,9 @@ const SBoxModifier = () => {
   const [inputMethod, setInputMethod] = useState('manual')
   const [matrixText, setMatrixText] = useState('')
   const [validation, setValidation] = useState(null)
+  const [firstRow, setFirstRow] = useState([1, 1, 1, 0, 0, 0, 0, 0])
+  const [generatedMatrix, setGeneratedMatrix] = useState(null)
+  const [generationStatus, setGenerationStatus] = useState(null)
   const [candidates, setCandidates] = useState([])
   const [selectedCandidate, setSelectedCandidate] = useState(null)
   const [metrics, setMetrics] = useState(null)
@@ -96,6 +99,41 @@ const SBoxModifier = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const generateMatrixFromFirstRow = async () => {
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+    setGenerationStatus(null)
+    try {
+      const response = await axios.post(`${API_BASE_URL}/generate-matrix`, { first_row: firstRow })
+      setGeneratedMatrix(response.data.matrix)
+      setGenerationStatus(response.data)
+      
+      if (response.data.is_valid) {
+        setSuccess('Matriks berhasil dibangkitkan dan valid!')
+        setMatrix(response.data.matrix)
+        // Auto-validate the generated matrix
+        const validateResponse = await axios.post(`${API_BASE_URL}/validate-matrix`, { matrix: response.data.matrix })
+        setValidation(validateResponse.data)
+      } else {
+        setError(response.data.message || 'Matriks dibangkitkan tetapi tidak valid (determinan = 0). Silakan ubah baris pertama.')
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || error.message || 'Terjadi kesalahan saat membangkitkan matriks'
+      setError(errorMsg)
+      setGeneratedMatrix(null)
+      setGenerationStatus(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleFirstRowChange = (index, value) => {
+    const newFirstRow = [...firstRow]
+    newFirstRow[index] = parseInt(value) || 0
+    setFirstRow(newFirstRow)
   }
 
   const generateSBox = async () => {
@@ -245,6 +283,12 @@ const SBoxModifier = () => {
             Text Area
           </button>
           <button
+            className={inputMethod === 'generator' ? 'active' : ''}
+            onClick={() => setInputMethod('generator')}
+          >
+            Matrix Generator
+          </button>
+          <button
             className={inputMethod === 'standard' ? 'active' : ''}
             onClick={() => {
               setInputMethod('standard')
@@ -300,6 +344,101 @@ const SBoxModifier = () => {
               rows={8}
               placeholder="1 0 0 0 1 1 1 1&#10;1 1 0 0 0 1 1 1&#10;..."
             />
+          </div>
+        )}
+
+        {inputMethod === 'generator' && (
+          <div className="matrix-generator">
+            <div className="generator-info">
+              <h3>🔧 Affine Matrix Generator</h3>
+              <p>
+                Masukkan baris pertama (8 bit). Matriks akan dibangkitkan menggunakan <strong>Right Circular Shift</strong>.
+                <br />
+                <em>Berdasarkan paper: "AES S-box modification uses affine matrices exploration"</em>
+              </p>
+              <p>
+                <strong>Contoh (K4 Matrix dari paper):</strong> <code>[1, 1, 1, 0, 0, 0, 0, 0]</code>
+              </p>
+            </div>
+            
+            <div className="first-row-input">
+              <label>Baris Pertama (8 bit, 0 atau 1):</label>
+              <div className="first-row-grid">
+                {firstRow.map((val, idx) => (
+                  <input
+                    key={idx}
+                    type="number"
+                    min="0"
+                    max="1"
+                    value={val}
+                    onChange={(e) => handleFirstRowChange(idx, e.target.value)}
+                    className="first-row-cell"
+                    placeholder={idx.toString()}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="button-group">
+              <button 
+                onClick={generateMatrixFromFirstRow} 
+                disabled={loading} 
+                className="btn-primary"
+              >
+                {loading ? 'Membangkitkan...' : '🔨 Bangkitkan Matriks'}
+              </button>
+            </div>
+
+            {generationStatus && (
+              <div className={`generation-result ${generationStatus.is_valid ? 'valid' : 'invalid'}`}>
+                <h4>Hasil Pembangkitan:</h4>
+                <p><strong>Status:</strong> {generationStatus.is_valid ? '✅ Valid' : '❌ Tidak Valid'}</p>
+                <p><strong>Determinan (mod 2):</strong> {generationStatus.determinant}</p>
+                <p><strong>Pesan:</strong> {generationStatus.message}</p>
+              </div>
+            )}
+
+            {generatedMatrix && (
+              <div className="generated-matrix-display">
+                <h4>Matriks yang Dibangkitkan (8×8):</h4>
+                <div className="matrix-preview">
+                  <table className="matrix-table">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        {[...Array(8)].map((_, i) => (
+                          <th key={i}>C{i + 1}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {generatedMatrix.map((row, rowIdx) => (
+                        <tr key={rowIdx}>
+                          <th>R{rowIdx + 1}</th>
+                          {row.map((val, colIdx) => (
+                            <td key={colIdx}>{val}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {generationStatus?.is_valid && (
+                  <div className="button-group">
+                    <button 
+                      onClick={() => {
+                        setMatrix(generatedMatrix)
+                        setInputMethod('manual')
+                        setSuccess('Matriks berhasil dimuat ke editor!')
+                      }} 
+                      className="btn-primary"
+                    >
+                      ✅ Gunakan Matriks Ini
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -451,6 +590,18 @@ const SBoxModifier = () => {
                 </tr>
               </thead>
               <tbody>
+                {/* Basic Properties */}
+                <tr>
+                  <td><strong>Bijective</strong></td>
+                  <td>{standardMetrics.is_bijective ? '✅ Ya' : '❌ Tidak'}</td>
+                  <td>{metrics.is_bijective ? '✅ Ya' : '❌ Tidak'}</td>
+                </tr>
+                <tr>
+                  <td><strong>Balanced</strong></td>
+                  <td>{standardMetrics.is_balanced ? '✅ Ya' : '❌ Tidak'}</td>
+                  <td>{metrics.is_balanced ? '✅ Ya' : '❌ Tidak'}</td>
+                </tr>
+                {/* Existing Metrics */}
                 <tr>
                   <td>Non-Linearity (NL)</td>
                   <td>{standardMetrics.nl}</td>
@@ -470,6 +621,37 @@ const SBoxModifier = () => {
                   <td>BIC-SAC</td>
                   <td>{standardMetrics.bic_sac.toFixed(4)}</td>
                   <td>{metrics.bic_sac.toFixed(4)}</td>
+                </tr>
+                {/* New Metrics */}
+                <tr>
+                  <td>Linear Approximation Probability (LAP)</td>
+                  <td>{standardMetrics.lap?.toFixed(6) || '-'}</td>
+                  <td>{metrics.lap?.toFixed(6) || '-'}</td>
+                </tr>
+                <tr>
+                  <td>Differential Approximation Probability (DAP)</td>
+                  <td>{standardMetrics.dap?.toFixed(6) || '-'}</td>
+                  <td>{metrics.dap?.toFixed(6) || '-'}</td>
+                </tr>
+                <tr>
+                  <td>Differential Uniformity (DU)</td>
+                  <td>{standardMetrics.du ?? '-'}</td>
+                  <td>{metrics.du ?? '-'}</td>
+                </tr>
+                <tr>
+                  <td>Algebraic Degree (AD)</td>
+                  <td>{standardMetrics.ad ?? '-'}</td>
+                  <td>{metrics.ad ?? '-'}</td>
+                </tr>
+                <tr>
+                  <td>Transparency Order (TO)</td>
+                  <td>{standardMetrics.to?.toFixed(6) || '-'}</td>
+                  <td>{metrics.to?.toFixed(6) || '-'}</td>
+                </tr>
+                <tr>
+                  <td>Correlation Immunity (CI)</td>
+                  <td>{standardMetrics.ci ?? '-'}</td>
+                  <td>{metrics.ci ?? '-'}</td>
                 </tr>
                 <tr>
                   <td><strong>Skor Keamanan</strong></td>
@@ -539,6 +721,42 @@ const SBoxModifier = () => {
                       ? `AES Standard lebih baik (${standardMetrics.bic_sac.toFixed(4)} vs ${metrics.bic_sac.toFixed(4)}, semakin rendah semakin baik)`
                       : `Keduanya sama (${metrics.bic_sac.toFixed(4)})`}
                   </li>
+                  {metrics.du && standardMetrics.du && (
+                    <li>
+                      <strong>Differential Uniformity (DU):</strong>{' '}
+                      {metrics.du < standardMetrics.du ? '✅' 
+                        : metrics.du > standardMetrics.du ? '⚠️' : '➖'}{' '}
+                      {metrics.du < standardMetrics.du
+                        ? `${selectedCandidate?.name} lebih baik (${metrics.du} vs ${standardMetrics.du}, semakin rendah semakin baik)`
+                        : metrics.du > standardMetrics.du
+                        ? `AES Standard lebih baik (${standardMetrics.du} vs ${metrics.du}, semakin rendah semakin baik)`
+                        : `Keduanya sama (${metrics.du})`}
+                    </li>
+                  )}
+                  {metrics.ad && standardMetrics.ad && (
+                    <li>
+                      <strong>Algebraic Degree (AD):</strong>{' '}
+                      {metrics.ad > standardMetrics.ad ? '✅' 
+                        : metrics.ad < standardMetrics.ad ? '⚠️' : '➖'}{' '}
+                      {metrics.ad > standardMetrics.ad
+                        ? `${selectedCandidate?.name} lebih baik (${metrics.ad} vs ${standardMetrics.ad}, semakin tinggi semakin baik)`
+                        : metrics.ad < standardMetrics.ad
+                        ? `AES Standard lebih baik (${standardMetrics.ad} vs ${metrics.ad}, semakin tinggi semakin baik)`
+                        : `Keduanya sama (${metrics.ad})`}
+                    </li>
+                  )}
+                  {metrics.ci !== undefined && standardMetrics.ci !== undefined && (
+                    <li>
+                      <strong>Correlation Immunity (CI):</strong>{' '}
+                      {metrics.ci > standardMetrics.ci ? '✅' 
+                        : metrics.ci < standardMetrics.ci ? '⚠️' : '➖'}{' '}
+                      {metrics.ci > standardMetrics.ci
+                        ? `${selectedCandidate?.name} lebih baik (${metrics.ci} vs ${standardMetrics.ci}, semakin tinggi semakin baik)`
+                        : metrics.ci < standardMetrics.ci
+                        ? `AES Standard lebih baik (${standardMetrics.ci} vs ${metrics.ci}, semakin tinggi semakin baik)`
+                        : `Keduanya sama (${metrics.ci})`}
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -558,6 +776,9 @@ const SBoxModifier = () => {
                 <th>SAC</th>
                 <th>BIC-NL</th>
                 <th>BIC-SAC</th>
+                <th>DU</th>
+                <th>AD</th>
+                <th>CI</th>
                 <th>Skor</th>
               </tr>
             </thead>
@@ -571,6 +792,9 @@ const SBoxModifier = () => {
                     <td>{c.metrics?.sac?.toFixed(4) || '-'}</td>
                     <td>{c.metrics?.bic_nl || '-'}</td>
                     <td>{c.metrics?.bic_sac?.toFixed(4) || '-'}</td>
+                    <td>{c.metrics?.du ?? '-'}</td>
+                    <td>{c.metrics?.ad ?? '-'}</td>
+                    <td>{c.metrics?.ci ?? '-'}</td>
                     <td><strong>{c.metrics?.score?.toFixed(2) || '-'}</strong></td>
                   </tr>
                 ))}

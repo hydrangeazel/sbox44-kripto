@@ -4,7 +4,9 @@ import pandas as pd
 import json
 from aes_engine.utils import SBOX
 from analytics import (
-    calc_nl_measure, calc_sac_measure, calc_bic_nl_measure, calc_bic_sac_measure
+    calc_nl_measure, calc_sac_measure, calc_bic_nl_measure, calc_bic_sac_measure,
+    calc_lap_measure, calc_dap_measure, calc_to_measure, calc_du_measure, calc_ad_measure,
+    calc_ci_measure, check_sbox_basic_properties
 )
 
 # Matriks affine standar AES (8x8)
@@ -114,6 +116,64 @@ def is_matrix_bijective(matrix):
     """
     det = matrix_determinant_mod2(matrix)
     return det == 1
+
+def right_circular_shift(row):
+    """
+    Melakukan Right Circular Shift pada sebuah baris.
+    Elemen terakhir dipindahkan ke posisi pertama.
+    
+    Contoh: [1, 1, 1, 0, 0, 0, 0, 0] -> [0, 1, 1, 1, 0, 0, 0, 0]
+    """
+    if len(row) == 0:
+        return row
+    return [row[-1]] + row[:-1]
+
+def generate_affine_matrix_from_first_row(first_row):
+    """
+    Membangkitkan matriks affine 8x8 dari baris pertama menggunakan Right Circular Shift.
+    
+    Berdasarkan paper "AES S-box modification uses affine matrices exploration":
+    - Row[0] = first_row (input)
+    - Row[i] = RightCircularShift(Row[i-1]) untuk i = 1 sampai 7
+    
+    Args:
+        first_row: List of 8 integers (0 or 1) representing the first row
+    
+    Returns:
+        tuple: (matrix, is_valid, det, message)
+        - matrix: 8x8 matrix (list of lists)
+        - is_valid: True if determinant mod 2 == 1 (invertible), False otherwise
+        - det: determinant value in GF(2) (0 or 1)
+        - message: validation message
+    """
+    # Validasi input
+    if not first_row or len(first_row) != 8:
+        return None, False, 0, "Baris pertama harus memiliki tepat 8 elemen"
+    
+    # Validasi elemen harus 0 atau 1
+    for i, val in enumerate(first_row):
+        if val not in [0, 1]:
+            return None, False, 0, f"Elemen ke-{i+1} harus 0 atau 1, ditemukan: {val}"
+    
+    # Bangun matriks menggunakan Right Circular Shift
+    matrix = []
+    current_row = list(first_row)  # Copy untuk menghindari modifikasi
+    
+    for i in range(8):
+        matrix.append(list(current_row))
+        if i < 7:  # Jangan shift pada iterasi terakhir
+            current_row = right_circular_shift(current_row)
+    
+    # Validasi determinan dalam GF(2)
+    det = matrix_determinant_mod2(matrix)
+    is_valid = (det == 1)
+    
+    if is_valid:
+        message = f"Matriks berhasil dibangkitkan. Determinan (mod 2) = {det} (Invertible/Valid)"
+    else:
+        message = f"Matriks dibangkitkan tetapi TIDAK VALID. Determinan (mod 2) = {det} (Singular/Non-invertible). S-box akan kehilangan sifat Bijective. Silakan ubah baris pertama."
+    
+    return matrix, is_valid, det, message
 
 def validate_affine_matrix(matrix):
     """
@@ -440,17 +500,33 @@ def render_sbox_modifier_ui():
         
         if st.button("🧪 Jalankan Pengujian Keamanan", type="primary"):
             with st.spinner("Menghitung metrik keamanan..."):
-                # Hitung metrik untuk kandidat
+                # 1. Basic Properties: Bijective & Balanced
+                basic_props_candidate = check_sbox_basic_properties(candidate_sbox)
+                basic_props_standard = check_sbox_basic_properties(SBOX)
+                
+                # 2. Hitung metrik untuk kandidat
                 nl_candidate = calc_nl_measure(candidate_sbox)
                 sac_candidate = calc_sac_measure(candidate_sbox)
                 bic_nl_candidate = calc_bic_nl_measure(candidate_sbox)
                 bic_sac_candidate = calc_bic_sac_measure(candidate_sbox)
+                lap_candidate = calc_lap_measure(candidate_sbox)
+                dap_candidate = calc_dap_measure(candidate_sbox)
+                du_candidate = calc_du_measure(candidate_sbox)
+                ad_candidate = calc_ad_measure(candidate_sbox)
+                to_candidate = calc_to_measure(candidate_sbox)
+                ci_candidate = calc_ci_measure(candidate_sbox)
                 
-                # Hitung metrik untuk AES standar
+                # 3. Hitung metrik untuk AES standar
                 nl_standard = calc_nl_measure(SBOX)
                 sac_standard = calc_sac_measure(SBOX)
                 bic_nl_standard = calc_bic_nl_measure(SBOX)
                 bic_sac_standard = calc_bic_sac_measure(SBOX)
+                lap_standard = calc_lap_measure(SBOX)
+                dap_standard = calc_dap_measure(SBOX)
+                du_standard = calc_du_measure(SBOX)
+                ad_standard = calc_ad_measure(SBOX)
+                to_standard = calc_to_measure(SBOX)
+                ci_standard = calc_ci_measure(SBOX)
                 
                 # Hitung skor keamanan
                 score_candidate = calculate_security_score(nl_candidate, sac_candidate, bic_nl_candidate, bic_sac_candidate)
@@ -458,10 +534,18 @@ def render_sbox_modifier_ui():
                 
                 # Simpan hasil evaluasi
                 selected_candidate['metrics'] = {
+                    'is_bijective': basic_props_candidate['is_bijective'],
+                    'is_balanced': basic_props_candidate['is_balanced'],
                     'nl': nl_candidate,
                     'sac': sac_candidate,
                     'bic_nl': bic_nl_candidate,
                     'bic_sac': bic_sac_candidate,
+                    'lap': lap_candidate,
+                    'dap': dap_candidate,
+                    'du': du_candidate,
+                    'ad': ad_candidate,
+                    'to': to_candidate,
+                    'ci': ci_candidate,
                     'score': score_candidate
                 }
                 
@@ -469,19 +553,40 @@ def render_sbox_modifier_ui():
                 st.markdown("### 📈 Dashboard Metrik Keamanan")
                 
                 metrics_data = {
-                    'Metrik': ['Non-Linearity (NL)', 'SAC', 'BIC-NL', 'BIC-SAC', 'Skor Keamanan'],
+                    'Metrik': [
+                        'Bijective', 'Balanced',
+                        'Non-Linearity (NL)', 'SAC', 'BIC-NL', 'BIC-SAC',
+                        'LAP', 'DAP', 'DU', 'AD', 'TO', 'CI',
+                        'Skor Keamanan'
+                    ],
                     'AES Standard': [
+                        '✅ Ya' if basic_props_standard['is_bijective'] else '❌ Tidak',
+                        '✅ Ya' if basic_props_standard['is_balanced'] else '❌ Tidak',
                         f"{nl_standard}",
                         f"{sac_standard:.4f}",
                         f"{bic_nl_standard}",
                         f"{bic_sac_standard:.4f}",
+                        f"{lap_standard:.6f}",
+                        f"{dap_standard:.6f}",
+                        f"{du_standard}",
+                        f"{ad_standard}",
+                        f"{to_standard:.6f}",
+                        f"{ci_standard}",
                         f"{score_standard:.2f}"
                     ],
                     selected_candidate['name']: [
+                        '✅ Ya' if basic_props_candidate['is_bijective'] else '❌ Tidak',
+                        '✅ Ya' if basic_props_candidate['is_balanced'] else '❌ Tidak',
                         f"{nl_candidate}",
                         f"{sac_candidate:.4f}",
                         f"{bic_nl_candidate}",
                         f"{bic_sac_candidate:.4f}",
+                        f"{lap_candidate:.6f}",
+                        f"{dap_candidate:.6f}",
+                        f"{du_candidate}",
+                        f"{ad_candidate}",
+                        f"{to_candidate:.6f}",
+                        f"{ci_candidate}",
                         f"{score_candidate:.2f}"
                     ]
                 }
@@ -493,9 +598,9 @@ def render_sbox_modifier_ui():
                 st.markdown("#### 📊 Grafik Perbandingan")
                 
                 comparison_data = pd.DataFrame({
-                    'Metrik': ['NL', 'SAC', 'BIC-NL', 'BIC-SAC'],
-                    'AES Standard': [nl_standard, sac_standard, bic_nl_standard, bic_sac_standard],
-                    selected_candidate['name']: [nl_candidate, sac_candidate, bic_nl_candidate, bic_sac_candidate]
+                    'Metrik': ['NL', 'SAC', 'BIC-NL', 'BIC-SAC', 'DU', 'AD', 'CI'],
+                    'AES Standard': [nl_standard, sac_standard, bic_nl_standard, bic_sac_standard, du_standard, ad_standard, ci_standard],
+                    selected_candidate['name']: [nl_candidate, sac_candidate, bic_nl_candidate, bic_sac_candidate, du_candidate, ad_candidate, ci_candidate]
                 })
                 
                 st.bar_chart(comparison_data.set_index('Metrik'))
@@ -551,6 +656,30 @@ def render_sbox_modifier_ui():
                     st.write(f"⚠️ **BIC-SAC:** AES Standard lebih baik ({bic_sac_standard:.4f} vs {bic_sac_candidate:.4f}, semakin rendah semakin baik)")
                 else:
                     st.write(f"➖ **BIC-SAC:** Keduanya sama ({bic_sac_candidate:.4f})")
+                
+                # DU
+                if du_candidate < du_standard:
+                    st.write(f"✅ **Differential Uniformity (DU):** {selected_candidate['name']} lebih baik ({du_candidate} vs {du_standard}, semakin rendah semakin baik)")
+                elif du_candidate > du_standard:
+                    st.write(f"⚠️ **Differential Uniformity (DU):** AES Standard lebih baik ({du_standard} vs {du_candidate}, semakin rendah semakin baik)")
+                else:
+                    st.write(f"➖ **Differential Uniformity (DU):** Keduanya sama ({du_candidate})")
+                
+                # AD
+                if ad_candidate > ad_standard:
+                    st.write(f"✅ **Algebraic Degree (AD):** {selected_candidate['name']} lebih baik ({ad_candidate} vs {ad_standard}, semakin tinggi semakin baik)")
+                elif ad_candidate < ad_standard:
+                    st.write(f"⚠️ **Algebraic Degree (AD):** AES Standard lebih baik ({ad_standard} vs {ad_candidate}, semakin tinggi semakin baik)")
+                else:
+                    st.write(f"➖ **Algebraic Degree (AD):** Keduanya sama ({ad_candidate})")
+                
+                # CI
+                if ci_candidate > ci_standard:
+                    st.write(f"✅ **Correlation Immunity (CI):** {selected_candidate['name']} lebih baik ({ci_candidate} vs {ci_standard}, semakin tinggi semakin baik)")
+                elif ci_candidate < ci_standard:
+                    st.write(f"⚠️ **Correlation Immunity (CI):** AES Standard lebih baik ({ci_standard} vs {ci_candidate}, semakin tinggi semakin baik)")
+                else:
+                    st.write(f"➖ **Correlation Immunity (CI):** Keduanya sama ({ci_candidate})")
         
         # Jika sudah ada evaluasi, tampilkan hasil
         if 'metrics' in selected_candidate:

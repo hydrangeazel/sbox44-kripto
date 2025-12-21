@@ -11,12 +11,14 @@ sys.path.insert(0, parent_dir)
 from components.ui_sbox_modifier import (
     validate_affine_matrix,
     generate_sbox_from_affine,
+    generate_affine_matrix_from_first_row,
     AES_AFFINE_MATRIX,
     AES_AFFINE_CONSTANT
 )
 from analytics import (
     calc_nl_measure, calc_sac_measure, calc_bic_nl_measure, calc_bic_sac_measure,
-    calc_lap_measure, calc_dap_measure, calc_to_measure, calc_du_measure, calc_ad_measure
+    calc_lap_measure, calc_dap_measure, calc_to_measure, calc_du_measure, calc_ad_measure,
+    calc_ci_measure, check_sbox_basic_properties
 )
 from aes_engine.utils import SBOX
 from aes_engine.modes import AESModes
@@ -108,19 +110,46 @@ def evaluate_security():
         if not sbox or len(sbox) != 256:
             return jsonify({'error': 'Valid S-box (256 elements) is required'}), 400
         
+        # 1. Basic Properties: Bijective & Balanced (Check first)
+        basic_props = check_sbox_basic_properties(sbox)
+        
+        # 2. Existing metrics
         nl = calc_nl_measure(sbox)
         sac = calc_sac_measure(sbox)
         bic_nl = calc_bic_nl_measure(sbox)
         bic_sac = calc_bic_sac_measure(sbox)
         
+        # 3. New metrics
+        lap = calc_lap_measure(sbox)
+        dap = calc_dap_measure(sbox)
+        du = calc_du_measure(sbox)
+        ad = calc_ad_measure(sbox)
+        to = calc_to_measure(sbox)
+        ci = calc_ci_measure(sbox)
+        
         # Hitung skor keamanan menggunakan fungsi terpusat
         total_score = calculate_security_score(nl, sac, bic_nl, bic_sac)
         
         return jsonify({
+            # Basic Properties
+            'is_bijective': basic_props['is_bijective'],
+            'is_balanced': basic_props['is_balanced'],
+            'is_valid': basic_props['is_valid'],
+            'bijective_message': basic_props['bijective_message'],
+            'balanced_message': basic_props['balanced_message'],
+            # Existing metrics
             'nl': nl,
             'sac': sac,
             'bic_nl': bic_nl,
             'bic_sac': bic_sac,
+            # New metrics
+            'lap': lap,
+            'dap': dap,
+            'du': du,
+            'ad': ad,
+            'to': to,
+            'ci': ci,
+            # Score
             'score': total_score
         })
     except Exception as e:
@@ -136,19 +165,46 @@ def get_standard_sbox():
 @app.route('/api/standard-metrics', methods=['GET'])
 def get_standard_metrics():
     """Get standard AES S-box metrics"""
+    # 1. Basic Properties: Bijective & Balanced
+    basic_props = check_sbox_basic_properties(SBOX)
+    
+    # 2. Existing metrics
     nl = calc_nl_measure(SBOX)
     sac = calc_sac_measure(SBOX)
     bic_nl = calc_bic_nl_measure(SBOX)
     bic_sac = calc_bic_sac_measure(SBOX)
     
+    # 3. New metrics
+    lap = calc_lap_measure(SBOX)
+    dap = calc_dap_measure(SBOX)
+    du = calc_du_measure(SBOX)
+    ad = calc_ad_measure(SBOX)
+    to = calc_to_measure(SBOX)
+    ci = calc_ci_measure(SBOX)
+    
     # Hitung skor keamanan menggunakan fungsi terpusat
     total_score = calculate_security_score(nl, sac, bic_nl, bic_sac)
     
     return jsonify({
+        # Basic Properties
+        'is_bijective': basic_props['is_bijective'],
+        'is_balanced': basic_props['is_balanced'],
+        'is_valid': basic_props['is_valid'],
+        'bijective_message': basic_props['bijective_message'],
+        'balanced_message': basic_props['balanced_message'],
+        # Existing metrics
         'nl': nl,
         'sac': sac,
         'bic_nl': bic_nl,
         'bic_sac': bic_sac,
+        # New metrics
+        'lap': lap,
+        'dap': dap,
+        'du': du,
+        'ad': ad,
+        'to': to,
+        'ci': ci,
+        # Score
         'score': total_score
     })
 
@@ -159,6 +215,37 @@ def get_default_matrix():
         'matrix': AES_AFFINE_MATRIX,
         'constant': AES_AFFINE_CONSTANT
     })
+
+@app.route('/api/generate-matrix', methods=['POST'])
+def generate_matrix():
+    """
+    Generate 8x8 affine matrix from first row using Right Circular Shift.
+    Based on paper "AES S-box modification uses affine matrices exploration".
+    """
+    try:
+        data = request.json
+        first_row = data.get('first_row')
+        
+        if not first_row:
+            return jsonify({'error': 'first_row is required'}), 400
+        
+        if not isinstance(first_row, list) or len(first_row) != 8:
+            return jsonify({'error': 'first_row must be a list of 8 integers (0 or 1)'}), 400
+        
+        # Generate matrix using right circular shift
+        matrix, is_valid, det, message = generate_affine_matrix_from_first_row(first_row)
+        
+        if matrix is None:
+            return jsonify({'error': message}), 400
+        
+        return jsonify({
+            'matrix': matrix,
+            'is_valid': is_valid,
+            'determinant': det,
+            'message': message
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 def load_sbox44():
     """Load S-box44 from JSON file"""
