@@ -3,6 +3,7 @@
   margin: 0 auto;
   position: relative;
   padding: 2rem 0;
+  /* Background inherited from body gradient in index.css */
 }
 
 .sbox-modifier::before {

@@ -1,5 +1,6 @@
 .sbox-comparison {
   max-width: 1400px;
+  /* Background inherited from body gradient in index.css */
 }
 
 .message {
