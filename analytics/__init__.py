@@ -9,6 +9,8 @@ from .dap import calc_dap_measure  # noqa: F401
 from .du import calc_du_measure  # noqa: F401
 from .ad import calc_ad_measure  # noqa: F401
 from .to import calc_to_measure  # noqa: F401
+from .ci import calc_ci_measure  # noqa: F401
+from .basic_props import check_sbox_basic_properties  # noqa: F401
 
 __all__ = [
     "calc_nl_measure",
@@ -20,5 +22,7 @@ __all__ = [
     "calc_to_measure",
     "calc_du_measure",
     "calc_ad_measure",
+    "calc_ci_measure",
+    "check_sbox_basic_properties",
 ]
 
