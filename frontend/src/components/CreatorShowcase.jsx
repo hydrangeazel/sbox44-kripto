@@ -9,7 +9,7 @@ const CreatorShowcase = () => {
     {
       name: 'Rahima Ratna Dewanti',
       nim: '2304130107',
-      avatar: '/avatars/rahima.jpg', // Place your image at public/avatars/rahima.jpg
+      avatar: '/avatars/rahima.png', // Place your image at public/avatars/rahima.png
       audio: '/audio/rahima.mp3' // Place your audio at public/audio/rahima.mp3 (or set to null if no audio)
     },
     {
@@ -81,7 +81,7 @@ const CreatorShowcase = () => {
               <div className="avatar-container">
                 <img
                   src={creator.avatar}
-                  alt={creator.name}
+                  alt={index === 0 ? 'Rahima Avatar' : creator.name}
                   className={`creator-avatar ${playingStates[index] ? 'playing' : ''}`}
                   style={{
                     animation: playingStates[index] ? 'rotate 3s linear infinite' : 'none'
