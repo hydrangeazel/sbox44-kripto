@@ -10,11 +10,11 @@ const Navigation = () => {
   const navRef = useRef(null)
 
   const menuItems = [
-    { id: 'home', label: 'Home', path: '/', section: 'home' },
-    { id: 'de-encrypt', label: 'De-Encrypt', path: '/', section: 'de-encrypt' },
-    { id: 'image-encryption', label: 'Image Encryption', path: '/', section: 'image-encryption' },
-    { id: 'sbox-maker', label: 'S-box Maker', path: '/', section: 'sbox-maker' },
-    { id: 'about', label: 'About', path: '/', section: 'about' }
+    { id: 'home', label: 'Home', path: '/', section: 'home', routePath: '/' },
+    { id: 'de-encrypt', label: 'De-Encrypt', path: '/', section: 'de-encrypt', routePath: '/de-encrypt' },
+    { id: 'image-encryption', label: 'Image Encryption', path: '/', section: 'image-encryption', routePath: '/image-encryption' },
+    { id: 'sbox-maker', label: 'S-box Maker', path: '/', section: 'sbox-maker', routePath: '/sbox-maker' },
+    { id: 'about', label: 'About', path: '/', section: 'about', routePath: '/' }
   ]
 
   useEffect(() => {
@@ -43,8 +43,8 @@ const Navigation = () => {
       handleScroll()
       return () => window.removeEventListener('scroll', handleScroll)
     } else {
-      // Set active based on route
-      const currentItem = menuItems.find(item => item.path === location.pathname)
+      // Set active based on route path
+      const currentItem = menuItems.find(item => item.routePath === location.pathname)
       if (currentItem) {
         setActiveSection(currentItem.id)
       } else {

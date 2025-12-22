@@ -4,6 +4,84 @@ import './ImageEncryptionInterface.css'
 
 const API_BASE_URL = '/api'
 
+// Helper function to load image and get pixel data
+const loadImagePixels = (imageSrc) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      resolve(imageData)
+    }
+    img.onerror = reject
+    img.src = imageSrc
+  })
+}
+
+// Calculate Entropy
+const calculateEntropy = (imageData) => {
+  const pixels = imageData.data
+  const histogram = new Array(256).fill(0)
+  let totalPixels = 0
+
+  // Count pixel values (using grayscale: average of RGB)
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i]
+    const g = pixels[i + 1]
+    const b = pixels[i + 2]
+    const gray = Math.round((r + g + b) / 3)
+    histogram[gray]++
+    totalPixels++
+  }
+
+  // Calculate entropy
+  let entropy = 0
+  for (let i = 0; i < 256; i++) {
+    if (histogram[i] > 0) {
+      const probability = histogram[i] / totalPixels
+      entropy -= probability * Math.log2(probability)
+    }
+  }
+
+  return entropy
+}
+
+// Calculate NPCR (Number of Pixel Change Rate)
+const calculateNPCR = (originalData, encryptedData) => {
+  if (originalData.width !== encryptedData.width || originalData.height !== encryptedData.height) {
+    return null
+  }
+
+  const originalPixels = originalData.data
+  const encryptedPixels = encryptedData.data
+  let differentPixels = 0
+  let totalPixels = originalData.width * originalData.height
+
+  // Compare pixel by pixel
+  for (let i = 0; i < originalPixels.length; i += 4) {
+    const origR = originalPixels[i]
+    const origG = originalPixels[i + 1]
+    const origB = originalPixels[i + 2]
+    
+    const encR = encryptedPixels[i]
+    const encG = encryptedPixels[i + 1]
+    const encB = encryptedPixels[i + 2]
+
+    // Check if pixel is different
+    if (origR !== encR || origG !== encG || origB !== encB) {
+      differentPixels++
+    }
+  }
+
+  // NPCR as percentage
+  return differentPixels / totalPixels
+}
+
 const ImageEncryptionInterface = () => {
   const [mode, setMode] = useState('ECB')
   const [algorithm, setAlgorithm] = useState('standard')
@@ -106,21 +184,37 @@ const ImageEncryptionInterface = () => {
         }
       })
 
-      setEncryptedImage(`data:image/png;base64,${apiResponse.data.image_b64}`)
+      const encryptedImageData = `data:image/png;base64,${apiResponse.data.image_b64}`
+      setEncryptedImage(encryptedImageData)
       
-      // Fetch metrics if available
-      if (apiResponse.data.metrics) {
-        setMetrics(apiResponse.data.metrics)
-      } else {
-        // Try to fetch metrics separately
-        try {
-          const metricsResponse = await axios.post(`${API_BASE_URL}/image-metrics`, {
-            original_image: originalImage,
-            encrypted_image: `data:image/png;base64,${apiResponse.data.image_b64}`
-          })
-          setMetrics(metricsResponse.data)
-        } catch (metricsError) {
-          console.warn('Metrics not available:', metricsError)
+      // Calculate metrics client-side
+      try {
+        // Load both images
+        const [originalPixels, encryptedPixels] = await Promise.all([
+          loadImagePixels(originalImage),
+          loadImagePixels(encryptedImageData)
+        ])
+
+        // Calculate Entropy for encrypted image
+        const entropy = calculateEntropy(encryptedPixels)
+
+        // Calculate NPCR
+        const npcr = calculateNPCR(originalPixels, encryptedPixels)
+
+        // Set metrics
+        const calculatedMetrics = {
+          entropy: entropy,
+          npcr: npcr,
+          // Keep any metrics from API if available
+          ...(apiResponse.data.metrics || {})
+        }
+
+        setMetrics(calculatedMetrics)
+      } catch (metricsError) {
+        console.warn('Error calculating metrics:', metricsError)
+        // Still try to use API metrics if available
+        if (apiResponse.data.metrics) {
+          setMetrics(apiResponse.data.metrics)
         }
       }
       
@@ -352,43 +446,219 @@ const ImageEncryptionInterface = () => {
           </div>
         </div>
 
-        {/* Metrics Section */}
+        {/* Metrics Analysis Section */}
         {metrics && (
-          <div className="metrics-section">
-            <h3 className="metrics-title">Security Analysis Metrics</h3>
-            <div className="metrics-grid">
+          <div className="metrics-analysis-section">
+            {/* Floating Blob Ornaments */}
+            <div className="metrics-blobs">
+              <div className="metrics-blob blob-1"></div>
+              <div className="metrics-blob blob-2"></div>
+              <div className="metrics-blob blob-3"></div>
+            </div>
+
+            {/* Title Section */}
+            <div className="metrics-header">
+              <h2 className="metrics-main-title">Security Metrics Results</h2>
+              <p className="metrics-subtitle">
+                Comprehensive cryptographic evaluation metrics reflecting the quality and strength of image encryption
+              </p>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="metrics-dashboard-grid">
+              {/* NPCR Card */}
               {metrics.npcr !== undefined && (
-                <div className="metric-item">
-                  <div className="metric-label">NPCR</div>
-                  <div className="metric-value">{metrics.npcr?.toFixed(4) || 'N/A'}</div>
+                <div className="metric-card npcr-card">
+                  <div className="metric-card-header">
+                    <div className="metric-name">
+                      NPCR
+                      <span className="metric-tooltip" data-tooltip="Number of Pixel Change Rate: Measures the percentage of different pixels between original and encrypted images. Higher values indicate better encryption quality.">
+                        ℹ️
+                      </span>
+                    </div>
+                  </div>
+                  <div className="metric-visual">
+                    <div className="metric-badge" style={{ '--value': `${Math.min(metrics.npcr * 100, 100)}%` }}>
+                      <span className="badge-value">{(metrics.npcr * 100).toFixed(2)}%</span>
+                    </div>
+                    <div className="metric-progress-bar">
+                      <div 
+                        className="metric-progress-fill" 
+                        style={{ width: `${Math.min(metrics.npcr * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
                   <div className="metric-description">Number of Pixel Change Rate</div>
                 </div>
               )}
+
+              {/* UACI Card */}
               {metrics.uaci !== undefined && (
-                <div className="metric-item">
-                  <div className="metric-label">UACI</div>
-                  <div className="metric-value">{metrics.uaci?.toFixed(4) || 'N/A'}</div>
+                <div className="metric-card uaci-card">
+                  <div className="metric-card-header">
+                    <div className="metric-name">
+                      UACI
+                      <span className="metric-tooltip" data-tooltip="Unified Average Changing Intensity: Measures the average intensity difference between original and encrypted images. Ideal value is around 33.46%.">
+                        ℹ️
+                      </span>
+                    </div>
+                  </div>
+                  <div className="metric-visual">
+                    <div className="metric-badge" style={{ '--value': `${Math.min(metrics.uaci * 100, 100)}%` }}>
+                      <span className="badge-value">{(metrics.uaci * 100).toFixed(2)}%</span>
+                    </div>
+                    <div className="metric-progress-bar">
+                      <div 
+                        className="metric-progress-fill" 
+                        style={{ width: `${Math.min(metrics.uaci * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
                   <div className="metric-description">Unified Average Changing Intensity</div>
                 </div>
               )}
-              {metrics.correlation !== undefined && (
-                <div className="metric-item">
-                  <div className="metric-label">Correlation</div>
-                  <div className="metric-value">{metrics.correlation?.toFixed(4) || 'N/A'}</div>
-                  <div className="metric-description">Correlation Coefficient</div>
-                </div>
-              )}
+
+              {/* Entropy Card */}
               {metrics.entropy !== undefined && (
-                <div className="metric-item">
-                  <div className="metric-label">Entropy</div>
-                  <div className="metric-value">{metrics.entropy?.toFixed(4) || 'N/A'}</div>
+                <div className="metric-card entropy-card">
+                  <div className="metric-card-header">
+                    <div className="metric-name">
+                      Entropy
+                      <span className="metric-tooltip" data-tooltip="Information Entropy: Measures the randomness and unpredictability of the encrypted image. Higher entropy (closer to 8) indicates better encryption.">
+                        ℹ️
+                      </span>
+                    </div>
+                  </div>
+                  <div className="metric-visual">
+                    <div className="entropy-gauge">
+                      <svg className="gauge-svg" viewBox="0 0 200 120">
+                        <path
+                          className="gauge-track"
+                          d="M 20 100 A 80 80 0 0 1 180 100"
+                          fill="none"
+                          stroke="rgba(213, 105, 137, 0.2)"
+                          strokeWidth="12"
+                        />
+                        <path
+                          className="gauge-fill"
+                          d="M 20 100 A 80 80 0 0 1 180 100"
+                          fill="none"
+                          stroke="url(#entropyGradient)"
+                          strokeWidth="12"
+                          strokeDasharray={`${(metrics.entropy / 8) * 251.2} 251.2`}
+                          strokeLinecap="round"
+                        />
+                        <defs>
+                          <linearGradient id="entropyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#D56989" />
+                            <stop offset="50%" stopColor="#EA9CAF" />
+                            <stop offset="100%" stopColor="#C2DC80" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      <div className="gauge-value">{metrics.entropy?.toFixed(4) || 'N/A'}</div>
+                      <div className="gauge-label">/ 8.0</div>
+                    </div>
+                  </div>
                   <div className="metric-description">Information Entropy</div>
                 </div>
               )}
+
+              {/* Correlation Coefficients Card */}
+              {(metrics.correlation_horizontal !== undefined || metrics.correlation_vertical !== undefined || metrics.correlation_diagonal !== undefined || metrics.correlation !== undefined) && (
+                <div className="metric-card correlation-card">
+                  <div className="metric-card-header">
+                    <div className="metric-name">
+                      Correlation Coefficients
+                      <span className="metric-tooltip" data-tooltip="Measures the correlation between adjacent pixels. Lower values (closer to 0) indicate better encryption by breaking pixel correlations.">
+                        ℹ️
+                      </span>
+                    </div>
+                  </div>
+                  <div className="metric-visual">
+                    <div className="correlation-bars">
+                      {metrics.correlation_horizontal !== undefined && (
+                        <div className="correlation-bar-item">
+                          <span className="bar-label">Horizontal</span>
+                          <div className="correlation-bar-container">
+                            <div 
+                              className="correlation-bar" 
+                              style={{ width: `${Math.abs(metrics.correlation_horizontal) * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="bar-value">{metrics.correlation_horizontal?.toFixed(4)}</span>
+                        </div>
+                      )}
+                      {metrics.correlation_vertical !== undefined && (
+                        <div className="correlation-bar-item">
+                          <span className="bar-label">Vertical</span>
+                          <div className="correlation-bar-container">
+                            <div 
+                              className="correlation-bar" 
+                              style={{ width: `${Math.abs(metrics.correlation_vertical) * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="bar-value">{metrics.correlation_vertical?.toFixed(4)}</span>
+                        </div>
+                      )}
+                      {metrics.correlation_diagonal !== undefined && (
+                        <div className="correlation-bar-item">
+                          <span className="bar-label">Diagonal</span>
+                          <div className="correlation-bar-container">
+                            <div 
+                              className="correlation-bar" 
+                              style={{ width: `${Math.abs(metrics.correlation_diagonal) * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="bar-value">{metrics.correlation_diagonal?.toFixed(4)}</span>
+                        </div>
+                      )}
+                      {metrics.correlation !== undefined && !metrics.correlation_horizontal && !metrics.correlation_vertical && !metrics.correlation_diagonal && (
+                        <div className="correlation-bar-item">
+                          <span className="bar-label">Overall</span>
+                          <div className="correlation-bar-container">
+                            <div 
+                              className="correlation-bar" 
+                              style={{ width: `${Math.abs(metrics.correlation) * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="bar-value">{metrics.correlation?.toFixed(4)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="metric-description">Pixel Correlation Analysis</div>
+                </div>
+              )}
+
+              {/* Histogram Uniformity Card */}
               {metrics.histogram_uniformity !== undefined && (
-                <div className="metric-item">
-                  <div className="metric-label">Histogram Uniformity</div>
-                  <div className="metric-value">{metrics.histogram_uniformity?.toFixed(4) || 'N/A'}</div>
+                <div className="metric-card histogram-card">
+                  <div className="metric-card-header">
+                    <div className="metric-name">
+                      Histogram Uniformity
+                      <span className="metric-tooltip" data-tooltip="Measures how uniformly distributed the pixel values are in the encrypted image. Higher uniformity indicates better encryption.">
+                        ℹ️
+                      </span>
+                    </div>
+                  </div>
+                  <div className="metric-visual">
+                    <div className="histogram-visualization">
+                      {originalImage && encryptedImage && (
+                        <div className="histogram-comparison">
+                          <div className="histogram-preview">
+                            <div className="histogram-label">Original</div>
+                            <div className="histogram-placeholder">📊</div>
+                          </div>
+                          <div className="histogram-preview">
+                            <div className="histogram-label">Encrypted</div>
+                            <div className="histogram-placeholder">📊</div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="uniformity-value">{metrics.histogram_uniformity?.toFixed(4) || 'N/A'}</div>
+                    </div>
+                  </div>
                   <div className="metric-description">Histogram Distribution Uniformity</div>
                 </div>
               )}
