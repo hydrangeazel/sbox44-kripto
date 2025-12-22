@@ -21,7 +21,7 @@ const CreatorShowcase = () => {
     {
       name: 'Zulfa Mardlotillah',
       nim: '2340130135',
-      avatar: '/avatars/zulfa.jpg', // Place your image at public/avatars/zulfa.jpg
+      avatar: '/avatars/zulfa.png', // Place your image at public/avatars/zulfa.png
       audio: '/audio/zulfa.mp3' // Place your audio at public/audio/zulfa.mp3 (or set to null if no audio)
     }
   ]
