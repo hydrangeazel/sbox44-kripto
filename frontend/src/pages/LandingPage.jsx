@@ -159,13 +159,13 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* De-Encrypt Section */}
+      {/* Text Encryption Section */}
       <section id="de-encrypt" ref={deEncryptRef} className="content-section">
         <div className="section-container">
           <div ref={deEncryptIntroRef} className="feature-intro">
             <div className="feature-intro-container">
               <div className="feature-intro-left">
-                <h2 className="feature-intro-title">De-Encrypt</h2>
+                <h2 className="feature-intro-title">Text Encryption</h2>
                 <p className="feature-intro-subtitle">
                   Encrypt and decrypt text and images using AES encryption with both standard 
                   and custom S-Box44 variants. Test the security of your cryptographic implementations.
@@ -181,7 +181,7 @@ const LandingPage = () => {
                 <div className="feature-intro-card feature-intro-card-deencrypt">
                   <img 
                     src="/features/de-encrypt.png" 
-                    alt="De-Encrypt Feature" 
+                    alt="Text Encryption Feature" 
                     className="feature-intro-image"
                     onError={(e) => { e.target.style.display = 'none' }}
                   />

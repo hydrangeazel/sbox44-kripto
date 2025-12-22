@@ -6,7 +6,7 @@ const TextEncryptionPage = () => {
   return (
     <div className="page-container">
       <div className="page-content">
-        <h1 className="page-title">De-Encrypt</h1>
+        <h1 className="page-title">Text Encryption</h1>
         <TextEncryption />
       </div>
     </div>
