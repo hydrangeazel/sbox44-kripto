@@ -18,6 +18,10 @@ const TextEncryption = () => {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
   const [cryptoState, setCryptoState] = useState(null)
+  const [sboxMetrics, setSboxMetrics] = useState(null)
+  const [standardMetrics, setStandardMetrics] = useState(null)
+  const [ciphertextAnalysis, setCiphertextAnalysis] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
 
   const handleEncrypt = async () => {
     if (!plaintext) {
@@ -101,6 +105,19 @@ const TextEncryption = () => {
     }
   }
 
+  // Load standard metrics on mount
+  React.useEffect(() => {
+    const loadStandardMetrics = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/standard-metrics`)
+        setStandardMetrics(response.data)
+      } catch (error) {
+        console.error('Error loading standard metrics:', error)
+      }
+    }
+    loadStandardMetrics()
+  }, [])
+
   // Auto-hide messages
   React.useEffect(() => {
     if (error || success) {
@@ -111,6 +128,44 @@ const TextEncryption = () => {
       return () => clearTimeout(timer)
     }
   }, [error, success])
+
+  const handleSecurityAnalysis = async () => {
+    if (!cryptoState) {
+      setError('Belum ada ciphertext yang terenkripsi. Lakukan enkripsi terlebih dahulu!')
+      return
+    }
+
+    setAnalyzing(true)
+    setError(null)
+
+    try {
+      // 1. Analisis S-Box yang digunakan
+      let sboxData = null
+      if (cryptoState.use_sbox44) {
+        // Load metrics S-Box44
+        const metricsResponse = await axios.get(`${API_BASE_URL}/compare-metrics?use_sbox44=true`)
+        sboxData = metricsResponse.data
+      }
+
+      // 2. Analisis ciphertext
+      const cipherAnalysisResponse = await axios.post(`${API_BASE_URL}/analyze-ciphertext`, {
+        ciphertext_hex: cryptoState.ciphertext_hex,
+        plaintext: cryptoState.plaintext,
+        key: cryptoState.key,
+        mode: cryptoState.mode,
+        iv: cryptoState.iv,
+        use_sbox44: cryptoState.use_sbox44
+      })
+
+      setSboxMetrics(sboxData)
+      setCiphertextAnalysis(cipherAnalysisResponse.data)
+      setSuccess('Analisis keamanan selesai!')
+    } catch (error) {
+      setError(error.response?.data?.error || error.message || 'Gagal melakukan analisis keamanan')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
 
   return (
     <div className="page text-encryption">
@@ -270,6 +325,138 @@ const TextEncryption = () => {
               <span className="metric-value">{cryptoState.use_sbox44 ? 'S-Box44' : 'Standard'}</span>
             </div>
           </div>
+
+          <div className="security-analysis-section">
+            <button
+              onClick={handleSecurityAnalysis}
+              disabled={analyzing || loading}
+              className="btn-primary btn-analyze"
+            >
+              {analyzing ? 'Menganalisis...' : '🔒 Analisis Keamanan Lengkap'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Security Analysis Results */}
+      {(sboxMetrics || ciphertextAnalysis) && (
+        <div className="security-results">
+          <h3>🔒 Hasil Analisis Keamanan</h3>
+
+          {/* S-Box Metrics Comparison */}
+          {sboxMetrics && standardMetrics && (
+            <div className="sbox-metrics-section">
+              <h4>📈 Metrik S-Box yang Digunakan</h4>
+              <div className="metrics-comparison-table">
+                <table className="metrics-table">
+                  <thead>
+                    <tr>
+                      <th>Metrik</th>
+                      <th>AES Standard</th>
+                      <th>{cryptoState?.use_sbox44 ? 'S-Box44' : 'Standard'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Non-Linearity (NL)</strong></td>
+                      <td>{standardMetrics.nl}</td>
+                      <td>{sboxMetrics.nl}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>SAC</strong></td>
+                      <td>{standardMetrics.sac.toFixed(4)}</td>
+                      <td>{sboxMetrics.sac.toFixed(4)}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>BIC-NL</strong></td>
+                      <td>{standardMetrics.bic_nl}</td>
+                      <td>{sboxMetrics.bic_nl}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>BIC-SAC</strong></td>
+                      <td>{standardMetrics.bic_sac.toFixed(4)}</td>
+                      <td>{sboxMetrics.bic_sac.toFixed(4)}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>LAP</strong></td>
+                      <td>{standardMetrics.lap?.toFixed(6) || '-'}</td>
+                      <td>{sboxMetrics.lap?.toFixed(6) || '-'}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>DAP</strong></td>
+                      <td>{standardMetrics.dap?.toFixed(6) || '-'}</td>
+                      <td>{sboxMetrics.dap?.toFixed(6) || '-'}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>DU</strong></td>
+                      <td>{standardMetrics.du ?? '-'}</td>
+                      <td>{sboxMetrics.du ?? '-'}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>AD</strong></td>
+                      <td>{standardMetrics.ad ?? '-'}</td>
+                      <td>{sboxMetrics.ad ?? '-'}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>TO</strong></td>
+                      <td>{standardMetrics.to?.toFixed(6) || '-'}</td>
+                      <td>{sboxMetrics.to?.toFixed(6) || '-'}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>CI</strong></td>
+                      <td>{standardMetrics.ci ?? '-'}</td>
+                      <td>{sboxMetrics.ci ?? '-'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Ciphertext Analysis */}
+          {ciphertextAnalysis && (
+            <div className="ciphertext-analysis-section">
+              <h4>📊 Analisis Statistik Ciphertext</h4>
+              <div className="ciphertext-metrics-grid">
+                <div className="metric-card">
+                  <div className="metric-label">Entropy</div>
+                  <div className="metric-value-large">{ciphertextAnalysis.entropy.toFixed(4)}</div>
+                  <div className="metric-description">
+                    Maksimum: {ciphertextAnalysis.max_entropy} bits
+                    <br />
+                    {ciphertextAnalysis.entropy >= 7.5 ? '✅ Sangat Baik' : ciphertextAnalysis.entropy >= 7.0 ? '✅ Baik' : '⚠️ Perlu Perhatian'}
+                  </div>
+                </div>
+                <div className="metric-card">
+                  <div className="metric-label">Chi-Square</div>
+                  <div className="metric-value-large">{ciphertextAnalysis.chi_square.toFixed(2)}</div>
+                  <div className="metric-description">
+                    Uji Randomness (ideal: ~255)
+                    <br />
+                    {Math.abs(ciphertextAnalysis.chi_square - 255) < 50 ? '✅ Random' : '⚠️ Perlu Perhatian'}
+                  </div>
+                </div>
+                <div className="metric-card">
+                  <div className="metric-label">Unique Bytes</div>
+                  <div className="metric-value-large">{ciphertextAnalysis.unique_bytes} / {ciphertextAnalysis.total_bytes}</div>
+                  <div className="metric-description">
+                    Distribusi byte unik
+                  </div>
+                </div>
+                {ciphertextAnalysis.avalanche_score !== null && (
+                  <div className="metric-card">
+                    <div className="metric-label">Avalanche Score</div>
+                    <div className="metric-value-large">{(ciphertextAnalysis.avalanche_score * 100).toFixed(2)}%</div>
+                    <div className="metric-description">
+                      Efek avalanche (ideal: ~50%)
+                      <br />
+                      {Math.abs(ciphertextAnalysis.avalanche_score - 0.5) < 0.1 ? '✅ Baik' : '⚠️ Perlu Perhatian'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
