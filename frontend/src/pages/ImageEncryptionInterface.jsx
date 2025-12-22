@@ -82,6 +82,134 @@ const calculateNPCR = (originalData, encryptedData) => {
   return differentPixels / totalPixels
 }
 
+// Calculate UACI (Unified Average Changing Intensity)
+const calculateUACI = (originalData, encryptedData) => {
+  if (originalData.width !== encryptedData.width || originalData.height !== encryptedData.height) {
+    return null
+  }
+
+  const originalPixels = originalData.data
+  const encryptedPixels = encryptedData.data
+  let totalDifference = 0
+  let totalPixels = originalData.width * originalData.height
+
+  // Calculate average intensity difference
+  for (let i = 0; i < originalPixels.length; i += 4) {
+    const origR = originalPixels[i]
+    const origG = originalPixels[i + 1]
+    const origB = originalPixels[i + 2]
+    const origGray = (origR + origG + origB) / 3
+    
+    const encR = encryptedPixels[i]
+    const encG = encryptedPixels[i + 1]
+    const encB = encryptedPixels[i + 2]
+    const encGray = (encR + encG + encB) / 3
+
+    totalDifference += Math.abs(origGray - encGray)
+  }
+
+  // UACI as percentage (normalized by 255)
+  return (totalDifference / totalPixels) / 255
+}
+
+// Calculate Correlation Coefficients
+const calculateCorrelation = (imageData, direction = 'horizontal') => {
+  const pixels = imageData.data
+  const width = imageData.width
+  const height = imageData.height
+  const pairs = []
+
+  // Get adjacent pixel pairs based on direction
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let nextX = x
+      let nextY = y
+
+      if (direction === 'horizontal' && x < width - 1) {
+        nextX = x + 1
+        nextY = y
+      } else if (direction === 'vertical' && y < height - 1) {
+        nextX = x
+        nextY = y + 1
+      } else if (direction === 'diagonal' && x < width - 1 && y < height - 1) {
+        nextX = x + 1
+        nextY = y + 1
+      } else {
+        continue
+      }
+
+      const idx1 = (y * width + x) * 4
+      const idx2 = (nextY * width + nextX) * 4
+
+      const gray1 = (pixels[idx1] + pixels[idx1 + 1] + pixels[idx1 + 2]) / 3
+      const gray2 = (pixels[idx2] + pixels[idx2 + 1] + pixels[idx2 + 2]) / 3
+
+      pairs.push({ x: gray1, y: gray2 })
+    }
+  }
+
+  if (pairs.length === 0) return 0
+
+  // Calculate mean
+  const meanX = pairs.reduce((sum, p) => sum + p.x, 0) / pairs.length
+  const meanY = pairs.reduce((sum, p) => sum + p.y, 0) / pairs.length
+
+  // Calculate correlation coefficient
+  let numerator = 0
+  let sumSqX = 0
+  let sumSqY = 0
+
+  for (const pair of pairs) {
+    const diffX = pair.x - meanX
+    const diffY = pair.y - meanY
+    numerator += diffX * diffY
+    sumSqX += diffX * diffX
+    sumSqY += diffY * diffY
+  }
+
+  const denominator = Math.sqrt(sumSqX * sumSqY)
+  if (denominator === 0) return 0
+
+  return numerator / denominator
+}
+
+// Calculate Histogram Uniformity
+const calculateHistogramUniformity = (imageData) => {
+  const pixels = imageData.data
+  const histogram = new Array(256).fill(0)
+  let totalPixels = 0
+
+  // Build histogram
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i]
+    const g = pixels[i + 1]
+    const b = pixels[i + 2]
+    const gray = Math.round((r + g + b) / 3)
+    histogram[gray]++
+    totalPixels++
+  }
+
+  // Calculate expected frequency (uniform distribution)
+  const expectedFreq = totalPixels / 256
+
+  // Calculate chi-square statistic for uniformity
+  let chiSquare = 0
+  for (let i = 0; i < 256; i++) {
+    const observed = histogram[i]
+    const expected = expectedFreq
+    if (expected > 0) {
+      chiSquare += Math.pow(observed - expected, 2) / expected
+    }
+  }
+
+  // Normalize to 0-1 range (lower is more uniform)
+  // Using inverse of normalized chi-square
+  const maxChiSquare = totalPixels * 255 // theoretical maximum
+  const uniformity = 1 - (chiSquare / maxChiSquare)
+
+  return Math.max(0, Math.min(1, uniformity))
+}
+
 const ImageEncryptionInterface = () => {
   const [mode, setMode] = useState('ECB')
   const [algorithm, setAlgorithm] = useState('standard')
@@ -201,11 +329,27 @@ const ImageEncryptionInterface = () => {
         // Calculate NPCR
         const npcr = calculateNPCR(originalPixels, encryptedPixels)
 
+        // Calculate UACI
+        const uaci = calculateUACI(originalPixels, encryptedPixels)
+
+        // Calculate Correlation Coefficients for encrypted image
+        const correlationHorizontal = calculateCorrelation(encryptedPixels, 'horizontal')
+        const correlationVertical = calculateCorrelation(encryptedPixels, 'vertical')
+        const correlationDiagonal = calculateCorrelation(encryptedPixels, 'diagonal')
+
+        // Calculate Histogram Uniformity for encrypted image
+        const histogramUniformity = calculateHistogramUniformity(encryptedPixels)
+
         // Set metrics
         const calculatedMetrics = {
           entropy: entropy,
           npcr: npcr,
-          // Keep any metrics from API if available
+          uaci: uaci,
+          correlation_horizontal: correlationHorizontal,
+          correlation_vertical: correlationVertical,
+          correlation_diagonal: correlationDiagonal,
+          histogram_uniformity: histogramUniformity,
+          // Keep any metrics from API if available (will override calculated ones)
           ...(apiResponse.data.metrics || {})
         }
 
