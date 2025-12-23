@@ -384,6 +384,58 @@
   line-height: 1.8;
 }
 
+.excel-upload {
+  position: relative;
+  z-index: 1;
+}
+
+.excel-upload-info {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 1.5rem;
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(213, 105, 137, 0.15);
+  box-shadow: 
+    0 4px 12px rgba(213, 105, 137, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.excel-upload-info h3 {
+  margin-top: 0;
+  color: #D56989;
+  font-size: 1.3rem;
+}
+
+.excel-upload-info p {
+  margin: 0.75rem 0;
+  color: rgba(213, 105, 137, 0.8);
+  line-height: 1.6;
+}
+
+.excel-upload-info ul {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+  color: rgba(213, 105, 137, 0.8);
+  line-height: 1.8;
+}
+
+.excel-upload-info ul li {
+  margin: 0.5rem 0;
+}
+
+.excel-upload-info strong {
+  color: #D56989;
+  font-weight: 600;
+}
+
+.excel-upload-controls {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
 .matrix-generator {
   position: relative;
   z-index: 1;

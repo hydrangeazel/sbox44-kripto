@@ -6,3 +6,5 @@ scipy
 pycryptodome
 flask
 flask-cors
+pandas
+openpyxl

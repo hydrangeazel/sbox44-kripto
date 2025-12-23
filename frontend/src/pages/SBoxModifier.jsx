@@ -33,6 +33,7 @@ const SBoxModifier = () => {
   const [success, setSuccess] = useState(null)
   const [displayFormat, setDisplayFormat] = useState('hex') // 'hex' or 'dec'
   const candidateIdCounter = useRef(0)
+  const excelFileInputRef = useRef(null)
 
   useEffect(() => {
     loadDefaultMatrix()
@@ -135,6 +136,63 @@ const SBoxModifier = () => {
     const newFirstRow = [...firstRow]
     newFirstRow[index] = parseInt(value) || 0
     setFirstRow(newFirstRow)
+  }
+
+  const handleExcelUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    // Check file extension
+    if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
+      setError('File harus berformat Excel (.xlsx atau .xls)')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await axios.post(`${API_BASE_URL}/upload-sbox-excel`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      const uploadedSbox = response.data.sbox
+      const warnings = response.data.warnings
+
+      // Create a new candidate from the uploaded S-box
+      const newCandidate = {
+        id: candidateIdCounter.current++,
+        name: `S-Box dari Excel: ${file.name}`,
+        matrix: null, // Excel upload doesn't provide matrix
+        constant: null, // Excel upload doesn't provide constant
+        sbox: uploadedSbox
+      }
+
+      setCandidates(prev => [...prev, newCandidate])
+      setSelectedCandidate(newCandidate)
+      
+      if (warnings && !warnings.is_valid) {
+        setError(`S-box dimuat dengan peringatan: S-box mungkin tidak valid (Bijective: ${warnings.is_bijective ? 'Ya' : 'Tidak'}, Balanced: ${warnings.is_balanced ? 'Ya' : 'Tidak'}). Anda tetap dapat mengevaluasi S-box ini.`)
+      } else {
+        setSuccess(`S-box berhasil dimuat dari Excel! ${response.data.message || ''}`)
+      }
+      
+      // Reset file input
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = ''
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || error.message || 'Terjadi kesalahan saat memproses file Excel'
+      setError(errorMsg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const generateSBox = async () => {
@@ -295,6 +353,12 @@ const SBoxModifier = () => {
             Matrix Generator
           </button>
           <button
+            className={inputMethod === 'excel' ? 'active' : ''}
+            onClick={() => setInputMethod('excel')}
+          >
+            Upload Excel S-Box
+          </button>
+          <button
             className={inputMethod === 'standard' ? 'active' : ''}
             onClick={() => {
               setInputMethod('standard')
@@ -445,6 +509,44 @@ const SBoxModifier = () => {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {inputMethod === 'excel' && (
+          <div className="excel-upload">
+            <div className="excel-upload-info">
+              <h3>📊 Upload S-Box dari Excel</h3>
+              <p>
+                Upload file Excel (.xlsx atau .xls) yang berisi S-box dengan 256 nilai (0-255).
+                Format yang didukung:
+              </p>
+              <ul>
+                <li><strong>16×16 Grid:</strong> 16 baris × 16 kolom (format standar S-box AES)</li>
+                <li><strong>Kolom Tunggal:</strong> 256 baris, 1 kolom</li>
+                <li><strong>Baris Tunggal:</strong> 1 baris, 256 kolom</li>
+              </ul>
+              <p>
+                <strong>Catatan:</strong> Nilai dapat berupa decimal (0-255) atau hexadecimal (0x00-0xFF atau 00-FF).
+                S-box yang diupload akan langsung digunakan sebagai kandidat S-box dan dapat dievaluasi keamanannya.
+              </p>
+            </div>
+            
+            <div className="excel-upload-controls">
+              <input
+                ref={excelFileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleExcelUpload}
+                style={{ display: 'none' }}
+              />
+              <button
+                onClick={() => excelFileInputRef.current?.click()}
+                disabled={loading}
+                className="btn-primary"
+              >
+                {loading ? 'Memproses...' : '📁 Pilih File Excel'}
+              </button>
+            </div>
           </div>
         )}
 

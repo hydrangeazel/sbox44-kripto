@@ -33,6 +33,8 @@ import time
 import math
 import random
 from collections import Counter
+import pandas as pd
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for React frontend
@@ -249,6 +251,96 @@ def generate_matrix():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/upload-sbox-excel', methods=['POST'])
+def upload_sbox_excel():
+    """
+    Upload and parse S-box from Excel file.
+    Supports multiple formats:
+    - 16x16 grid (rows 0-15, columns 0-15)
+    - Single column with 256 rows
+    - Single row with 256 columns
+    """
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'Excel file is required'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Check file extension
+        if not file.filename.lower().endswith(('.xlsx', '.xls')):
+            return jsonify({'error': 'File must be Excel format (.xlsx or .xls)'}), 400
+        
+        # Read Excel file
+        try:
+            df = pd.read_excel(file, header=None)
+        except Exception as e:
+            return jsonify({'error': f'Failed to read Excel file: {str(e)}'}), 400
+        
+        # Convert to numpy array for easier manipulation
+        data = df.values
+        
+        # Remove NaN values and flatten
+        data_flat = data[~pd.isna(data)].flatten()
+        
+        # Try to parse as integers
+        sbox = []
+        for val in data_flat:
+            try:
+                # Try to parse as integer (hex, decimal, or string)
+                if isinstance(val, str):
+                    # Remove whitespace
+                    val = val.strip()
+                    # Try hex format (0xXX or XX)
+                    if val.startswith('0x') or val.startswith('0X'):
+                        num = int(val, 16)
+                    else:
+                        num = int(val)
+                elif pd.isna(val):
+                    continue  # Skip NaN values
+                else:
+                    num = int(float(val))  # Convert float to int if needed
+                
+                # Ensure value is in valid range (0-255)
+                if num < 0 or num > 255:
+                    return jsonify({'error': f'Invalid S-box value: {num}. Values must be between 0-255'}), 400
+                
+                sbox.append(num)
+            except (ValueError, TypeError) as e:
+                return jsonify({'error': f'Failed to parse value: {val}. All values must be integers between 0-255'}), 400
+        
+        # Validate length
+        if len(sbox) != 256:
+            return jsonify({
+                'error': f'Invalid S-box length: {len(sbox)}. S-box must contain exactly 256 values'
+            }), 400
+        
+        # Validate S-box basic properties (but allow invalid S-boxes with warnings)
+        basic_props = check_sbox_basic_properties(sbox)
+        
+        # Return S-box with warnings if invalid, but still allow it to be used
+        warnings = None
+        if not basic_props['is_valid']:
+            warnings = {
+                'is_bijective': basic_props.get('is_bijective', False),
+                'is_balanced': basic_props.get('is_balanced', False),
+                'bijective_message': basic_props.get('bijective_message', ''),
+                'balanced_message': basic_props.get('balanced_message', ''),
+                'is_valid': False
+            }
+        
+        # Return successful S-box (even if invalid, allow user to evaluate it)
+        return jsonify({
+            'sbox': sbox,
+            'message': 'S-box successfully loaded from Excel file' + (' (with warnings - S-box may not be valid)' if warnings else ''),
+            'is_bijective': basic_props.get('is_bijective', False),
+            'is_balanced': basic_props.get('is_balanced', False),
+            'warnings': warnings
+        })
+    except Exception as e:
+        return jsonify({'error': f'Error processing Excel file: {str(e)}'}), 500
 
 def load_sbox44():
     """Load S-box44 from JSON file"""
